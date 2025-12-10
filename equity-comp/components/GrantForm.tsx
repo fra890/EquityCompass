@@ -3,6 +3,8 @@ import { Button } from './Button';
 import { Grant, GrantType } from '../types';
 import { fetchStockPrice } from '../services/geminiService';
 import { Search, Loader2, PenLine } from 'lucide-react';
+import DocumentUpload from './DocumentUpload';
+import { ExtractedGrantData } from '../utils/documentParser';
 
 interface GrantFormProps {
   onSave: (grant: Omit<Grant, 'id' | 'lastUpdated'>) => void;
@@ -66,9 +68,9 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
 
   const handleTickerBlur = async () => {
     if (!ticker) return;
-    
+
     if (!companyName) setCompanyName(ticker.toUpperCase());
-    
+
     setIsFetchingPrice(true);
     setPriceError('');
     try {
@@ -79,6 +81,23 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       setPriceError('Could not auto-fetch price. Please enter manually.');
     } finally {
       setIsFetchingPrice(false);
+    }
+  };
+
+  const handleDocumentData = (data: ExtractedGrantData) => {
+    if (data.type) setType(data.type);
+    if (data.ticker) setTicker(data.ticker);
+    if (data.companyName) setCompanyName(data.companyName);
+    if (data.strikePrice != null) setStrikePrice(String(data.strikePrice));
+    if (data.grantDate) setGrantDate(data.grantDate);
+    if (data.totalShares != null) setTotalShares(String(data.totalShares));
+
+    if (data.cliffMonths != null && data.vestingMonths != null) {
+      if (data.cliffMonths === 12 && data.vestingMonths === 48) {
+        setVestingSchedule('standard_4y_1y_cliff');
+      } else if (data.cliffMonths === 0 && data.vestingMonths === 48) {
+        setVestingSchedule('standard_4y_quarterly');
+      }
     }
   };
 
@@ -105,7 +124,10 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      
+      {!initialData && (
+        <DocumentUpload onDataExtracted={handleDocumentData} />
+      )}
+
       {/* Type Selector */}
       <div>
         <label className={labelClass}>Grant Type</label>
