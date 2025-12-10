@@ -7,7 +7,7 @@ import { Button } from './components/Button';
 import { Login } from './components/Login';
 import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
-import { getClients, saveClient } from './services/firestoreService';
+import { getClients, saveClient } from './services/supabaseService';
 
 const App: React.FC = () => {
   // --- Auth State ---
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
       setIsLoading(true);
-      getClients(user.uid)
+      getClients(user.id)
         .then(data => {
           setClients(data);
         })
@@ -70,9 +70,9 @@ const App: React.FC = () => {
 
     // Optimistic Update
     setClients([...clients, newClient]);
-    
+
     // Cloud Save
-    await saveClient(user.uid, newClient);
+    await saveClient(user.id, newClient);
   };
 
   const handleUpdateClient = async (updatedClient: Client) => {
@@ -80,9 +80,9 @@ const App: React.FC = () => {
 
     // Optimistic Update
     setClients(clients.map(c => c.id === updatedClient.id ? updatedClient : c));
-    
+
     // Cloud Save
-    await saveClient(user.uid, updatedClient);
+    await saveClient(user.id, updatedClient);
   };
 
   const handleLogout = async () => {

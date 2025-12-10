@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Client, AggregatedVestingEvent } from '../types';
 import { generateVestingSchedule, formatCurrency, formatNumber, generateICSFileContent } from '../utils/calculations';
-import { Calendar, Download, Search, TrendingUp, CalendarDays, Filter } from 'lucide-react';
+import { Calendar, Download, Search, TrendingUp, CalendarDays } from 'lucide-react';
 import { Button } from './Button';
 
 interface VestingCalendarProps {

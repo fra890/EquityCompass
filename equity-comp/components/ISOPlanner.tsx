@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client, Grant, PlannedExercise } from '../types';
 import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, formatNumber, calculateAMTRoom, getEffectiveRates } from '../utils/calculations';
-import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, MinusCircle, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, ArrowUpRight, PenLine } from 'lucide-react';
+import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, PenLine } from 'lucide-react';
 import { Button } from './Button';
 
 interface ISOPlannerProps {
@@ -98,15 +98,13 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
   );
 
   const disqualifiedScenario = calculateISOScenarios(
-      sharesToExercise, 
-      selectedGrant.strikePrice || 0, 
-      selectedGrant.currentPrice, 
-      selectedGrant.currentPrice, 
-      client, 
+      sharesToExercise,
+      selectedGrant.strikePrice || 0,
+      selectedGrant.currentPrice,
+      selectedGrant.currentPrice,
+      client,
       false
   );
-
-  const netDifference = qualifiedScenario.netProfit - disqualifiedScenario.netProfit;
 
   // --- Calculations for Cashless ---
   const { stateRate } = getEffectiveRates(client);

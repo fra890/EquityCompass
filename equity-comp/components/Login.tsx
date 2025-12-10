@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
 import { TrendingUp, AlertCircle, Lock } from 'lucide-react';
 
@@ -10,6 +9,7 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,15 +17,16 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+      const { error: authError } = isLogin
+        ? await signIn(email, password)
+        : await signUp(email, password);
+
+      if (authError) {
+        setError(authError.message);
       }
     } catch (err: any) {
-      // Improve error message display
       console.error(err);
-      setError(err.message.replace('Firebase: ', ''));
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -78,6 +79,7 @@ export const Login: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none transition-all text-slate-900"
                     placeholder="••••••••"
+                    minLength={6}
                   />
                   <Lock className="absolute right-3 top-3 text-slate-400" size={16} />
                 </div>
@@ -88,11 +90,11 @@ export const Login: React.FC = () => {
               </Button>
             </form>
           </div>
-          
+
           <div className="bg-slate-50 px-8 py-4 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-600">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
-              <button 
+              <button
                 onClick={() => setIsLogin(!isLogin)}
                 className="ml-2 text-tidemark-blue font-semibold hover:underline"
               >
@@ -101,7 +103,7 @@ export const Login: React.FC = () => {
             </p>
           </div>
         </div>
-        
+
         <p className="text-center text-xs text-slate-400 mt-8">
           &copy; {new Date().getFullYear()} EquityCompass. Internal Office Use Only.
         </p>
