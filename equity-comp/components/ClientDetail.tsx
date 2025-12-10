@@ -295,17 +295,40 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
         const qualInfo = calculateISOQualification(grant.grantDate, ex.exerciseDate);
         const currentValue = ex.shares * grant.currentPrice;
 
+        // Calculate AMTI (AMT preference item)
+        const amti = (ex.fmvAtExercise - (grant.strikePrice || 0)) * ex.shares;
+
         return {
             ...ex,
             grantTicker: grant.ticker,
             grantDate: grant.grantDate,
             currentFMV: grant.currentPrice,
             currentValue,
-            qualification: qualInfo
+            qualification: qualInfo,
+            amti
         };
     }).filter(Boolean) as any[];
 
-    return { rsu: rsuHoldings, iso: isoHoldings, lots: allLots };
+    // Calculate AMTI by year
+    interface YearAMTI {
+        year: number;
+        total: number;
+        exercises: any[];
+    }
+
+    const amtiByYear = isoHoldings.reduce((acc, ex) => {
+        const year = new Date(ex.exerciseDate).getFullYear();
+        if (!acc[year]) {
+            acc[year] = { year, total: 0, exercises: [] };
+        }
+        acc[year].total += ex.amti;
+        acc[year].exercises.push(ex);
+        return acc;
+    }, {} as Record<number, YearAMTI>);
+
+    const amtiSummary: YearAMTI[] = (Object.values(amtiByYear) as YearAMTI[]).sort((a, b) => b.year - a.year);
+
+    return { rsu: rsuHoldings, iso: isoHoldings, lots: allLots, amtiByYear: amtiSummary };
   }, [allEvents, client.grants, client.plannedExercises, simulateSellAll]);
 
 
@@ -1006,6 +1029,95 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* AMTI Tracking by Year */}
+            {holdings.amtiByYear && holdings.amtiByYear.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
+                    <div className="p-5 border-b border-slate-100 bg-purple-50/50">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <TrendingUp size={18} className="text-purple-600" />
+                            AMT Income (AMTI) from ISO Exercises
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">Alternative Minimum Tax preference items by year</p>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        {holdings.amtiByYear.map((yearData: any) => {
+                            const isPast = yearData.year < new Date().getFullYear();
+                            const isCurrent = yearData.year === new Date().getFullYear();
+
+                            return (
+                                <div key={yearData.year} className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <div className={`p-4 flex justify-between items-center ${
+                                        isCurrent ? 'bg-amber-50 border-b border-amber-200' :
+                                        isPast ? 'bg-slate-50 border-b border-slate-200' :
+                                        'bg-purple-50 border-b border-purple-200'
+                                    }`}>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl font-bold text-slate-800">{yearData.year}</span>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                isCurrent ? 'bg-amber-100 text-amber-700' :
+                                                isPast ? 'bg-slate-200 text-slate-600' :
+                                                'bg-purple-100 text-purple-700'
+                                            }`}>
+                                                {isCurrent ? 'Current Year' : isPast ? 'Historical' : 'Planned'}
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-slate-500 font-medium mb-0.5">Total AMTI</div>
+                                            <div className="text-2xl font-bold text-purple-600">
+                                                {formatCurrency(yearData.total)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200">
+                                                <tr>
+                                                    <th className="px-4 py-2.5 text-left">Exercise Date</th>
+                                                    <th className="px-4 py-2.5 text-left">Grant</th>
+                                                    <th className="px-4 py-2.5 text-right">Shares</th>
+                                                    <th className="px-4 py-2.5 text-right">Strike Price</th>
+                                                    <th className="px-4 py-2.5 text-right">FMV at Exercise</th>
+                                                    <th className="px-4 py-2.5 text-right">AMTI (Spread)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {yearData.exercises.map((ex: any, idx: number) => {
+                                                    const grant = client.grants.find(g => g.id === ex.grantId);
+                                                    return (
+                                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                            <td className="px-4 py-3 text-slate-700">{ex.exerciseDate}</td>
+                                                            <td className="px-4 py-3 font-medium text-slate-900">{ex.grantTicker}</td>
+                                                            <td className="px-4 py-3 text-right text-slate-700 font-mono">{formatNumber(ex.shares)}</td>
+                                                            <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(grant?.strikePrice || 0)}</td>
+                                                            <td className="px-4 py-3 text-right text-slate-700">{formatCurrency(ex.fmvAtExercise)}</td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <span className="font-bold text-purple-600">
+                                                                    {formatCurrency(ex.amti)}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <strong>Important:</strong> AMTI from ISO exercises is the spread between FMV at exercise and strike price.
+                                This is a preference item for AMT calculations and may trigger AMT liability. Consult with a tax professional
+                                for accurate AMT projections and planning.
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
