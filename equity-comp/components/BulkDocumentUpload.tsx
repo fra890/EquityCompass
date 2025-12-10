@@ -48,13 +48,14 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setExtractedGrants([]);
     setShowReview(false);
 
-    const validTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel'
-    ];
+    const fileName = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                   file.type === 'application/vnd.ms-excel' ||
+                   fileName.endsWith('.xlsx') ||
+                   fileName.endsWith('.xls');
 
-    if (!validTypes.includes(file.type)) {
+    if (!isPdf && !isExcel) {
       setError('Please upload a PDF or Excel file.');
       return;
     }
@@ -186,9 +187,16 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
       )}
 
       {error && (
-        <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+          <div className="mt-3">
+            <Button variant="secondary" onClick={clearFile} className="text-xs py-1 px-3">
+              Try Again
+            </Button>
+          </div>
         </div>
       )}
 

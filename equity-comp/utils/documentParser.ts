@@ -17,16 +17,24 @@ export interface ExtractedGrantData extends Partial<Grant> {
 
 export const parseDocument = async (file: File): Promise<ExtractedGrantData[]> => {
   const fileType = file.type;
+  const fileName = file.name.toLowerCase();
   let extractedText = '';
 
-  if (fileType === 'application/pdf') {
+  const isPdf = fileType === 'application/pdf' || fileName.endsWith('.pdf');
+  const isExcel = fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                  fileType === 'application/vnd.ms-excel' ||
+                  fileName.endsWith('.xlsx') ||
+                  fileName.endsWith('.xls');
+
+  if (isPdf) {
     extractedText = await parsePDF(file);
-  } else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || fileType === 'application/vnd.ms-excel') {
+  } else if (isExcel) {
     extractedText = await parseExcel(file);
   } else {
     throw new Error('Unsupported file type. Please upload a PDF or Excel file.');
   }
 
+  console.log('Extracted text from document:', extractedText.substring(0, 500));
   return await extractGrantData(extractedText);
 };
 

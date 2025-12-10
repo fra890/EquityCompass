@@ -686,9 +686,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
       {/* Grant Form Modal */}
       {showGrantForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tidemark-navy/40 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-200 relative">
-             <button onClick={() => { setShowGrantForm(false); setEditingGrant(null); }} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-tidemark-navy/40 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-200 relative my-8">
+             <button onClick={() => { setShowGrantForm(false); setEditingGrant(null); }} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors z-10">
                 <X size={24} />
              </button>
              <div className="flex items-center gap-3 mb-6">
@@ -697,7 +697,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                  </div>
                  <h3 className="text-xl font-bold text-tidemark-navy">{editingGrant ? 'Edit Grant Details' : 'Add New Grant'}</h3>
              </div>
-             
+
              <GrantForm
                key={editingGrant?.id || 'new'}
                onSave={handleSaveGrant}

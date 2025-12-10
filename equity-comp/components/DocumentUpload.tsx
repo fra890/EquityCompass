@@ -43,13 +43,14 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onDataExtracted }) => {
     setError(null);
     setUploadedFile(file);
 
-    const validTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel'
-    ];
+    const fileName = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                   file.type === 'application/vnd.ms-excel' ||
+                   fileName.endsWith('.xlsx') ||
+                   fileName.endsWith('.xls');
 
-    if (!validTypes.includes(file.type)) {
+    if (!isPdf && !isExcel) {
       setError('Please upload a PDF or Excel file.');
       return;
     }
@@ -58,8 +59,13 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onDataExtracted }) => {
 
     try {
       const extractedData = await parseDocument(file);
+      if (extractedData.length === 0) {
+        setError('No grant data found in document. Please check the file contains equity grant information.');
+        return;
+      }
       onDataExtracted(extractedData);
     } catch (err) {
+      console.error('Document processing error:', err);
       setError(err instanceof Error ? err.message : 'Failed to process document');
     } finally {
       setIsProcessing(false);
@@ -143,18 +149,32 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onDataExtracted }) => {
       )}
 
       {error && (
-        <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button type="button" variant="secondary" onClick={clearFile} className="text-xs py-1 px-3">
+              Try Again
+            </Button>
+          </div>
         </div>
       )}
 
       {!error && uploadedFile && !isProcessing && (
-        <div className="mt-3 flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-green-800">
-            Document processed successfully! Review the auto-filled fields below.
-          </p>
+        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-green-800">
+              Document processed successfully! Review the auto-filled fields below.
+            </p>
+          </div>
+          <div className="mt-3">
+            <Button type="button" variant="secondary" onClick={clearFile} className="text-xs py-1 px-3">
+              Upload Different File
+            </Button>
+          </div>
         </div>
       )}
     </div>
