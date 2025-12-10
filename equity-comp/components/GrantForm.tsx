@@ -36,17 +36,17 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       setType(initialData.type || 'RSU');
       setTicker(initialData.ticker || '');
       setCompanyName(initialData.companyName || '');
-      setCurrentPrice(initialData.currentPrice ? initialData.currentPrice.toString() : '');
-      setStrikePrice(initialData.strikePrice !== undefined ? initialData.strikePrice.toString() : '');
-      setGrantPrice(initialData.grantPrice !== undefined ? initialData.grantPrice.toString() : '');
+      setCurrentPrice(initialData.currentPrice != null ? String(initialData.currentPrice) : '');
+      setStrikePrice(initialData.strikePrice != null ? String(initialData.strikePrice) : '');
+      setGrantPrice(initialData.grantPrice != null ? String(initialData.grantPrice) : '');
       setGrantDate(initialData.grantDate || '');
-      setTotalShares(initialData.totalShares ? initialData.totalShares.toString() : '');
+      setTotalShares(initialData.totalShares != null ? String(initialData.totalShares) : '');
       setVestingSchedule(initialData.vestingSchedule || 'standard_4y_1y_cliff');
-      setWithholdingRate(initialData.withholdingRate !== undefined ? initialData.withholdingRate.toString() : '22');
+      setWithholdingRate(initialData.withholdingRate != null ? String(initialData.withholdingRate) : '22');
 
-      setCustomHeldShares(initialData.customHeldShares !== undefined ? initialData.customHeldShares.toString() : '');
-      setAverageCostBasis(initialData.averageCostBasis !== undefined ? initialData.averageCostBasis.toString() : '');
-      if (initialData.customHeldShares !== undefined) setShowOverride(true);
+      setCustomHeldShares(initialData.customHeldShares != null ? String(initialData.customHeldShares) : '');
+      setAverageCostBasis(initialData.averageCostBasis != null ? String(initialData.averageCostBasis) : '');
+      if (initialData.customHeldShares != null) setShowOverride(true);
     } else {
       setType('RSU');
       setTicker('');
