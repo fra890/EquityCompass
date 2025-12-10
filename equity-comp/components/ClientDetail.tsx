@@ -14,7 +14,7 @@ interface ClientDetailProps {
   onUpdateClient: (updatedClient: Client) => void;
 }
 
-type Tab = 'overview' | 'iso-planning' | 'history';
+type Tab = 'overview' | 'rsu' | 'iso-planning' | 'history';
 
 interface GrantYearData {
   year: string;
@@ -637,6 +637,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           Vesting Overview
         </button>
         <button
+          onClick={() => setActiveTab('rsu')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'rsu' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          RSU Details
+        </button>
+        <button
           onClick={() => setActiveTab('iso-planning')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'iso-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
@@ -653,6 +659,281 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       {activeTab === 'iso-planning' ? (
         <div className="print:block">
             <ISOPlanner client={client} grants={client.grants} onSavePlan={handleSavePlan} />
+        </div>
+      ) : activeTab === 'rsu' ? (
+        <div className="space-y-8 animate-fade-in">
+            {/* RSU Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <CheckCircle size={22} />
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Vested Value</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-tidemark-navy">{formatCurrency(holdings.rsu.value)}</p>
+                    <p className="text-sm text-slate-500 mt-1">{formatNumber(holdings.rsu.shares)} shares</p>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2.5 bg-slate-100 text-slate-600 rounded-lg">
+                            <Lock size={22} />
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Unvested Value</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-700">{formatCurrency(unvestedRSUValue)}</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {formatNumber(client.grants.filter(g => g.type === 'RSU').reduce((sum, g) => {
+                            const schedule = generateVestingSchedule(g, client);
+                            const unvested = schedule.filter(e => new Date(e.date) > new Date());
+                            return sum + unvested.reduce((s, e) => s + e.shares, 0);
+                        }, 0))} shares
+                    </p>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                            <Coins size={22} />
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total RSU Grants</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-tidemark-navy">
+                        {client.grants.filter(g => g.type === 'RSU').length}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {formatNumber(client.grants.filter(g => g.type === 'RSU').reduce((sum, g) => sum + g.totalShares, 0))} total shares
+                    </p>
+                </div>
+            </div>
+
+            {/* All RSU Grants Detail Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                    <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                        <Building size={20} />
+                        All RSU Grants
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">Detailed breakdown of all RSU equity grants</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Grant Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Company</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Shares</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Vested</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Unvested</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Grant Price</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Current Price</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Current Value</th>
+                                <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-100">
+                            {client.grants.filter(g => g.type === 'RSU').map((grant) => {
+                                const schedule = generateVestingSchedule(grant, client);
+                                const today = new Date();
+                                const vestedEvents = schedule.filter(e => new Date(e.date) <= today);
+                                const unvestedEvents = schedule.filter(e => new Date(e.date) > today);
+                                const vestedShares = vestedEvents.reduce((sum, e) => sum + e.shares, 0);
+                                const unvestedShares = unvestedEvents.reduce((sum, e) => sum + e.shares, 0);
+                                const currentValue = grant.totalShares * (grant.currentPrice || 0);
+                                const statusObj = getGrantStatus(grant, client.plannedExercises);
+                                const statusText = statusObj.vestedTotal === statusObj.total ? 'Fully Vested' :
+                                    statusObj.vestedTotal > 0 ? 'Partially Vested' : 'Not Vested';
+
+                                return (
+                                    <tr key={grant.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                                            {new Date(grant.grantDate).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-900">{grant.companyName}</td>
+                                        <td className="px-6 py-4 text-sm text-right font-mono text-slate-600">
+                                            {formatNumber(grant.totalShares)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-right font-mono text-emerald-600 font-medium">
+                                            {formatNumber(vestedShares)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-right font-mono text-slate-400">
+                                            {formatNumber(unvestedShares)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-right font-mono text-slate-600">
+                                            {formatCurrency(grant.grantPrice || 0)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-right font-mono text-slate-900 font-medium">
+                                            {formatCurrency(grant.currentPrice || 0)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-right font-bold text-tidemark-navy">
+                                            {formatCurrency(currentValue)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                statusText === 'Fully Vested' ? 'bg-emerald-50 text-emerald-700' :
+                                                statusText === 'Partially Vested' ? 'bg-blue-50 text-blue-700' :
+                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                                {statusText}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingGrant(grant);
+                                                    setShowGrantForm(true);
+                                                }}
+                                                className="text-tidemark-blue hover:text-tidemark-navy transition-colors"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Vesting Schedule Detail for Each Grant */}
+            <div className="space-y-6">
+                <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                    <Clock size={20} />
+                    Detailed Vesting Schedules
+                </h3>
+
+                {client.grants.filter(g => g.type === 'RSU').map((grant) => {
+                    const schedule = generateVestingSchedule(grant, client);
+                    const today = new Date();
+                    const effectiveRates = getEffectiveRates(client);
+                    const federalRate = client.taxBracket / 100;
+
+                    return (
+                        <div key={grant.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h4 className="text-base font-bold text-tidemark-navy">{grant.companyName}</h4>
+                                        <p className="text-sm text-slate-500">
+                                            Granted: {new Date(grant.grantDate).toLocaleDateString()} |
+                                            {grant.totalShares.toLocaleString()} shares @ {formatCurrency(grant.grantPrice || 0)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm font-semibold text-slate-500">Current Value</div>
+                                        <div className="text-xl font-bold text-tidemark-navy">
+                                            {formatCurrency(grant.totalShares * (grant.currentPrice || 0))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Vest Date</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Shares</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">FMV at Vest</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Gross Income</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Fed Tax ({formatPercent(federalRate)})</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">State Tax ({formatPercent(effectiveRates.stateRate)})</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Total Tax</th>
+                                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Net After Tax</th>
+                                            <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {schedule.map((event, idx) => {
+                                            const isVested = new Date(event.date) <= today;
+                                            const fmv = grant.currentPrice || grant.grantPrice || 0;
+                                            const grossIncome = event.shares * fmv;
+                                            const fedTax = grossIncome * federalRate;
+                                            const stateTax = grossIncome * effectiveRates.stateRate;
+                                            const totalTax = fedTax + stateTax;
+                                            const netAfterTax = grossIncome - totalTax;
+
+                                            return (
+                                                <tr key={idx} className={`${isVested ? 'bg-emerald-50/30' : 'bg-white'} hover:bg-slate-50 transition-colors`}>
+                                                    <td className="px-4 py-3 text-sm text-slate-900 font-medium">
+                                                        {new Date(event.date).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono text-slate-700">
+                                                        {formatNumber(event.shares)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono text-slate-700">
+                                                        {formatCurrency(fmv)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono font-medium text-tidemark-navy">
+                                                        {formatCurrency(grossIncome)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono text-red-600">
+                                                        {formatCurrency(fedTax)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono text-red-600">
+                                                        {formatCurrency(stateTax)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono font-bold text-red-700">
+                                                        {formatCurrency(totalTax)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right font-mono font-bold text-emerald-700">
+                                                        {formatCurrency(netAfterTax)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                            isVested ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                                                        }`}>
+                                                            {isVested ? <CheckCircle size={12} /> : <Lock size={12} />}
+                                                            {isVested ? 'Vested' : 'Unvested'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot className="bg-slate-50 border-t-2 border-slate-300">
+                                        <tr>
+                                            <td className="px-4 py-3 text-sm font-bold text-slate-700" colSpan={3}>Grant Totals</td>
+                                            <td className="px-4 py-3 text-sm text-right font-mono font-bold text-tidemark-navy">
+                                                {formatCurrency(grant.totalShares * (grant.currentPrice || grant.grantPrice || 0))}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right font-mono font-bold text-red-700" colSpan={3}>
+                                                {formatCurrency(grant.totalShares * (grant.currentPrice || grant.grantPrice || 0) * (federalRate + effectiveRates.stateRate))}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right font-mono font-bold text-emerald-700">
+                                                {formatCurrency(grant.totalShares * (grant.currentPrice || grant.grantPrice || 0) * (1 - federalRate - effectiveRates.stateRate))}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Tax Planning Notes */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                    <div>
+                        <h4 className="font-bold text-amber-900 mb-2">RSU Tax Planning Notes</h4>
+                        <ul className="text-sm text-amber-800 space-y-2">
+                            <li>• RSUs are taxed as ordinary income at vest based on Fair Market Value</li>
+                            <li>• Tax withholding is typically handled automatically by your employer at 22% federal + state rate</li>
+                            <li>• Additional taxes may be due at year-end if your actual tax rate exceeds withholding rate</li>
+                            <li>• After vesting, any gain/loss on sale is treated as capital gain/loss with cost basis = FMV at vest</li>
+                            <li>• Consider selling shares at vest to cover tax liability or holding for potential appreciation</li>
+                            <li>• Concentrated positions may carry risk - consider diversification strategies</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
       ) : activeTab === 'history' ? (
          <div className="space-y-8 animate-fade-in">
