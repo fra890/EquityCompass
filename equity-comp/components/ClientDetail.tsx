@@ -535,9 +535,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                  <h3 className="text-xl font-bold text-tidemark-navy">{editingGrant ? 'Edit Grant Details' : 'Add New Grant'}</h3>
              </div>
              
-             <GrantForm 
-               onSave={handleSaveGrant} 
-               onCancel={() => { setShowGrantForm(false); setEditingGrant(null); }} 
+             <GrantForm
+               key={editingGrant?.id || 'new'}
+               onSave={handleSaveGrant}
+               onCancel={() => { setShowGrantForm(false); setEditingGrant(null); }}
                initialData={editingGrant || undefined}
              />
           </div>

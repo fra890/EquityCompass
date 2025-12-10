@@ -353,38 +353,110 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                 )}
                             </div>
 
-                            {/* Compare Cards */}
+                            {/* Net Difference Highlight */}
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg mb-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 className="text-sm font-medium text-emerald-100 uppercase tracking-wide">Tax Savings by Holding</h4>
+                                        <p className="text-xs text-emerald-200 mt-1">Benefit of qualifying for long-term capital gains</p>
+                                    </div>
+                                    <TrendingUp className="text-emerald-200" size={24} />
+                                </div>
+                                <div className="flex items-baseline gap-2 mt-4">
+                                    <span className="text-5xl font-bold">{formatCurrency(qualifiedScenario.netProfit - disqualifiedScenario.netProfit)}</span>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-emerald-400/30">
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-emerald-200 text-xs mb-1">Sell Now (Disqualified)</div>
+                                            <div className="font-bold text-lg">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-emerald-200 text-xs mb-1">Hold 1 Year (Qualified)</div>
+                                            <div className="font-bold text-lg">{formatCurrency(qualifiedScenario.netProfit)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Detailed Comparison Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <h4 className="font-bold text-tidemark-gray text-sm">Sell Immediately</h4>
+                                <div className="border border-slate-200 rounded-xl p-5 bg-white shadow-sm">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h4 className="font-bold text-slate-800 text-base">Sell Immediately</h4>
                                         <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Disqualified</span>
                                     </div>
-                                    <div className="text-right mb-3">
-                                        <div className="text-[10px] text-slate-500 uppercase font-bold">Net Profit</div>
-                                        <div className="text-xl font-bold text-tidemark-gray">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                                    <div className="mb-4 pb-4 border-b border-slate-100">
+                                        <div className="text-xs text-slate-500 uppercase font-bold mb-1">Net Profit</div>
+                                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(disqualifiedScenario.netProfit)}</div>
                                     </div>
-                                    <div className="pt-3 border-t border-slate-100 space-y-1">
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-slate-500">Total Tax</span>
-                                            <span className="text-red-500 font-medium">{formatCurrency(disqualifiedScenario.taxes.totalTax)}</span>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Tax Breakdown</div>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-600">Federal (Ordinary)</span>
+                                                    <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.fedAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-600">State Tax</span>
+                                                    <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.stateAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-600">NIIT (3.8%)</span>
+                                                    <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.niitAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                                                    <span className="text-slate-700 font-bold">Total Tax</span>
+                                                    <span className="font-bold text-red-600">{formatCurrency(disqualifiedScenario.taxes.totalTax)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs text-slate-500">
+                                                    <span>Effective Rate</span>
+                                                    <span className="font-medium">{formatPercent(disqualifiedScenario.taxes.totalTax / (disqualifiedScenario.netProfit + disqualifiedScenario.taxes.totalTax))}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="border border-tidemark-blue/30 rounded-xl p-4 bg-sky-50/30 shadow-sm ring-1 ring-tidemark-blue/10">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <h4 className="font-bold text-tidemark-navy text-sm">Hold 1 Year</h4>
+                                <div className="border border-tidemark-blue/30 rounded-xl p-5 bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm ring-2 ring-tidemark-blue/20">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h4 className="font-bold text-tidemark-navy text-base">Hold 1 Year</h4>
                                         <span className="text-[10px] font-bold uppercase bg-tidemark-blue text-white px-2 py-0.5 rounded-full">Qualified</span>
                                     </div>
-                                    <div className="text-right mb-3">
-                                        <div className="text-[10px] text-tidemark-blue uppercase font-bold">Net Profit</div>
-                                        <div className="text-xl font-bold text-tidemark-navy">{formatCurrency(qualifiedScenario.netProfit)}</div>
+                                    <div className="mb-4 pb-4 border-b border-sky-200">
+                                        <div className="text-xs text-tidemark-blue uppercase font-bold mb-1">Net Profit</div>
+                                        <div className="text-2xl font-bold text-tidemark-navy">{formatCurrency(qualifiedScenario.netProfit)}</div>
                                     </div>
-                                    <div className="pt-3 border-t border-sky-100 space-y-1">
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-slate-500">Total Tax</span>
-                                            <span className="text-tidemark-navy font-medium">{formatCurrency(qualifiedScenario.taxes.totalTax)}</span>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <div className="text-xs font-bold text-tidemark-navy mb-2 uppercase tracking-wide">Tax Breakdown</div>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-700">Federal LTCG</span>
+                                                    <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.fedAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-700">State Tax</span>
+                                                    <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.stateAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-700">NIIT (3.8%)</span>
+                                                    <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.niitAmount)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-700">AMT Preference</span>
+                                                    <span className="font-semibold text-orange-600">{formatCurrency(qualifiedScenario.amtPreference)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm pt-2 border-t border-sky-200">
+                                                    <span className="text-tidemark-navy font-bold">Total Tax</span>
+                                                    <span className="font-bold text-tidemark-blue">{formatCurrency(qualifiedScenario.taxes.totalTax)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs text-slate-600">
+                                                    <span>Effective Rate</span>
+                                                    <span className="font-medium">{formatPercent(qualifiedScenario.taxes.totalTax / (qualifiedScenario.netProfit + qualifiedScenario.taxes.totalTax))}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

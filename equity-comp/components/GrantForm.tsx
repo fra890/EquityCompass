@@ -33,20 +33,34 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
   // Pre-fill form if editing
   useEffect(() => {
     if (initialData) {
-      setType(initialData.type);
-      setTicker(initialData.ticker);
-      setCompanyName(initialData.companyName);
-      setCurrentPrice(initialData.currentPrice.toString());
+      setType(initialData.type || 'RSU');
+      setTicker(initialData.ticker || '');
+      setCompanyName(initialData.companyName || '');
+      setCurrentPrice(initialData.currentPrice ? initialData.currentPrice.toString() : '');
       setStrikePrice(initialData.strikePrice !== undefined ? initialData.strikePrice.toString() : '');
       setGrantPrice(initialData.grantPrice !== undefined ? initialData.grantPrice.toString() : '');
-      setGrantDate(initialData.grantDate);
-      setTotalShares(initialData.totalShares.toString());
-      setVestingSchedule(initialData.vestingSchedule);
+      setGrantDate(initialData.grantDate || '');
+      setTotalShares(initialData.totalShares ? initialData.totalShares.toString() : '');
+      setVestingSchedule(initialData.vestingSchedule || 'standard_4y_1y_cliff');
       setWithholdingRate(initialData.withholdingRate !== undefined ? initialData.withholdingRate.toString() : '22');
-      
+
       setCustomHeldShares(initialData.customHeldShares !== undefined ? initialData.customHeldShares.toString() : '');
       setAverageCostBasis(initialData.averageCostBasis !== undefined ? initialData.averageCostBasis.toString() : '');
       if (initialData.customHeldShares !== undefined) setShowOverride(true);
+    } else {
+      setType('RSU');
+      setTicker('');
+      setCompanyName('');
+      setCurrentPrice('');
+      setStrikePrice('');
+      setGrantPrice('');
+      setGrantDate('');
+      setTotalShares('');
+      setVestingSchedule('standard_4y_1y_cliff');
+      setWithholdingRate('22');
+      setCustomHeldShares('');
+      setAverageCostBasis('');
+      setShowOverride(false);
     }
   }, [initialData]);
 
