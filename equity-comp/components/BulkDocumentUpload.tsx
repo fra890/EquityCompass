@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Upload, FileText, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import { parseDocument, ExtractedGrantData } from '../utils/documentParser';
+import { Upload, FileText, X, AlertCircle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
+import { parseDocument } from '../utils/documentParser';
 import { Button } from './Button';
 import { Grant, GrantType } from '../types';
 
@@ -13,8 +13,8 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [extractedGrants, setExtractedGrants] = useState<ExtractedGrantData[]>([]);
-  const [processingComplete, setProcessingComplete] = useState(false);
+  const [extractedGrants, setExtractedGrants] = useState<Array<Omit<Grant, 'id' | 'lastUpdated'>>>([]);
+  const [showReview, setShowReview] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -46,7 +46,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setError(null);
     setUploadedFile(file);
     setExtractedGrants([]);
-    setProcessingComplete(false);
+    setShowReview(false);
 
     const validTypes = [
       'application/pdf',
@@ -66,15 +66,14 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
 
       if (grants.length === 0) {
         setError('No grants found in the document. Please check the document format.');
+        setIsProcessing(false);
         return;
       }
-
-      setExtractedGrants(grants);
 
       const formattedGrants = grants.map(grant => ({
         type: grant.type || 'RSU' as GrantType,
         ticker: grant.ticker?.toUpperCase() || '',
-        companyName: grant.companyName || '',
+        companyName: grant.companyName || 'Unknown Company',
         currentPrice: 0,
         strikePrice: grant.strikePrice,
         grantDate: grant.grantDate || new Date().toISOString().split('T')[0],
@@ -83,9 +82,10 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
         withholdingRate: grant.type === 'RSU' ? 22 : undefined,
       })) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
 
-      onGrantsExtracted(formattedGrants);
-      setProcessingComplete(true);
+      setExtractedGrants(formattedGrants);
+      setShowReview(true);
     } catch (err) {
+      console.error('Document processing error:', err);
       setError(err instanceof Error ? err.message : 'Failed to process document');
     } finally {
       setIsProcessing(false);
@@ -105,7 +105,17 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setUploadedFile(null);
     setError(null);
     setExtractedGrants([]);
-    setProcessingComplete(false);
+    setShowReview(false);
+  };
+
+  const handleSaveGrants = () => {
+    if (extractedGrants.length > 0) {
+      onGrantsExtracted(extractedGrants);
+    }
+  };
+
+  const handleRemoveGrant = (index: number) => {
+    setExtractedGrants(extractedGrants.filter((_, i) => i !== index));
   };
 
   return (
@@ -182,27 +192,80 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
         </div>
       )}
 
-      {processingComplete && extractedGrants.length > 0 && (
-        <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-start gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-green-800">
-                Successfully processed {extractedGrants.length} grant{extractedGrants.length > 1 ? 's' : ''}!
-              </p>
-              <p className="text-xs text-green-700 mt-1">
-                The following grants have been automatically added:
-              </p>
-            </div>
+      {showReview && extractedGrants.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <p className="text-sm font-semibold text-slate-800">
+              Found {extractedGrants.length} grant{extractedGrants.length > 1 ? 's' : ''} - Review before adding
+            </p>
           </div>
-          <ul className="mt-2 space-y-1 ml-7">
+
+          <div className="space-y-3 max-h-96 overflow-y-auto">
             {extractedGrants.map((grant, index) => (
-              <li key={index} className="text-xs text-green-800">
-                • {grant.companyName || 'Unknown Company'} - {grant.totalShares} shares ({grant.type || 'RSU'})
-                {grant.grantDate && ` - Grant Date: ${grant.grantDate}`}
-              </li>
+              <div key={index} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-semibold text-slate-900">
+                      Grant #{index + 1} - {grant.companyName}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {grant.type} • {grant.totalShares} shares
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveGrant(index)}
+                    className="text-red-500 hover:text-red-700 p-1"
+                    title="Remove this grant"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">Type:</span>
+                    <span className="ml-2 font-medium text-slate-800">{grant.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Shares:</span>
+                    <span className="ml-2 font-medium text-slate-800">{grant.totalShares}</span>
+                  </div>
+                  {grant.ticker && (
+                    <div>
+                      <span className="text-slate-500">Ticker:</span>
+                      <span className="ml-2 font-medium text-slate-800">{grant.ticker}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-slate-500">Grant Date:</span>
+                    <span className="ml-2 font-medium text-slate-800">{grant.grantDate}</span>
+                  </div>
+                  {grant.strikePrice && (
+                    <div>
+                      <span className="text-slate-500">Strike Price:</span>
+                      <span className="ml-2 font-medium text-slate-800">${grant.strikePrice}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-slate-500">Vesting:</span>
+                    <span className="ml-2 font-medium text-slate-800">
+                      {grant.vestingSchedule === 'standard_4y_1y_cliff' ? '4yr/1yr cliff' : '4yr quarterly'}
+                    </span>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <Button onClick={handleSaveGrants} className="flex-1">
+              Add {extractedGrants.length} Grant{extractedGrants.length > 1 ? 's' : ''}
+            </Button>
+            <Button variant="secondary" onClick={clearFile} className="flex-1">
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
     </div>

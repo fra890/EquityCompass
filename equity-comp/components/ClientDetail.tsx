@@ -710,12 +710,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
       {/* Bulk Document Upload Modal */}
       {showBulkUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tidemark-navy/40 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-200 relative">
-             <button onClick={() => setShowBulkUpload(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-tidemark-navy/40 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-200 relative my-8">
+             <button onClick={() => setShowBulkUpload(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors z-10">
                 <X size={24} />
              </button>
-             <div className="flex items-center gap-3 mb-6">
+             <div className="flex items-center gap-3 mb-4">
                  <div className="p-2 bg-tidemark-blue/10 rounded-lg">
                     <Upload className="text-tidemark-blue" size={20} />
                  </div>
@@ -723,7 +723,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
              </div>
 
              <p className="text-sm text-slate-600 mb-6">
-               Upload a PDF or Excel file containing one or more equity grants. The system will automatically extract and save all grants found in the document.
+               Upload a PDF or Excel file containing equity grants. Review the extracted grants before adding them.
              </p>
 
              <BulkDocumentUpload onGrantsExtracted={handleBulkGrantsExtracted} />
