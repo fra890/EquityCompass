@@ -62,7 +62,7 @@ const parseExcel = async (file: File): Promise<string> => {
 };
 
 const extractGrantData = async (text: string): Promise<ExtractedGrantData> => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
   const prompt = `
 You are an expert in analyzing equity compensation documents. Extract the following information from the provided text and return it as a JSON object. If any field is not found, set it to null.
