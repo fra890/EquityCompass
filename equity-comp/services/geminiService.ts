@@ -2,38 +2,36 @@ import { StockPriceResponse } from "../types";
 
 export const fetchStockPrice = async (ticker: string): Promise<StockPriceResponse> => {
   try {
-    const upperTicker = ticker.toUpperCase();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase configuration missing");
+    }
 
     const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${upperTicker}?interval=1d&range=1d`,
+      `${supabaseUrl}/functions/v1/fetch-stock-price?ticker=${ticker}`,
       {
         headers: {
-          'User-Agent': 'Mozilla/5.0'
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
         }
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Yahoo Finance API error: ${response.status}`);
+      throw new Error(`Stock price API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    const result = data?.chart?.result?.[0];
-    if (!result) {
-      throw new Error("Invalid ticker or no data available");
-    }
-
-    const meta = result.meta;
-    const price = meta?.regularMarketPrice || meta?.previousClose;
-
-    if (!price) {
-      throw new Error("Could not find price data");
+    if (data.error) {
+      throw new Error(data.error);
     }
 
     return {
-      price: parseFloat(price.toFixed(2)),
-      currency: meta?.currency || 'USD'
+      price: data.price,
+      currency: data.currency || 'USD'
     };
 
   } catch (error) {
