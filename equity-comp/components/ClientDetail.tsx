@@ -10,20 +10,21 @@ import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Setti
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const fetchStockPrice = async (ticker: string): Promise<number> => {
+const fetchStockPrice = async (ticker: string, date?: string): Promise<number> => {
   if (!ticker) return 0;
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/fetch-stock-price?ticker=${encodeURIComponent(ticker)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    let url = `${supabaseUrl}/functions/v1/fetch-stock-price?ticker=${encodeURIComponent(ticker)}`;
+    if (date) {
+      url += `&date=${encodeURIComponent(date)}`;
+    }
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
     if (!response.ok) return 0;
     const data = await response.json();
     return data.price || 0;
@@ -391,9 +392,18 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   const handleSaveGrant = async (grantData: Omit<Grant, 'id' | 'lastUpdated'>) => {
     let finalGrantData = { ...grantData };
 
-    if (grantData.ticker && (!grantData.currentPrice || grantData.currentPrice === 0)) {
-      const price = await fetchStockPrice(grantData.ticker);
-      finalGrantData.currentPrice = price;
+    if (grantData.ticker) {
+      if (!grantData.currentPrice || grantData.currentPrice === 0) {
+        const price = await fetchStockPrice(grantData.ticker);
+        finalGrantData.currentPrice = price;
+      }
+
+      if (grantData.grantDate && !grantData.grantPrice) {
+        const historicalPrice = await fetchStockPrice(grantData.ticker, grantData.grantDate);
+        if (historicalPrice > 0) {
+          finalGrantData.grantPrice = historicalPrice;
+        }
+      }
     }
 
     if (editingGrant) {
@@ -417,22 +427,32 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   const handleBulkGrantsExtracted = async (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
     const uniqueTickers = [...new Set(grants.map(g => g.ticker).filter(Boolean))];
-    const priceMap: Record<string, number> = {};
+    const currentPriceMap: Record<string, number> = {};
 
     await Promise.all(
       uniqueTickers.map(async (ticker) => {
         const price = await fetchStockPrice(ticker);
-        priceMap[ticker] = price;
+        currentPriceMap[ticker] = price;
       })
     );
 
-    const newGrants: Grant[] = grants.map(grantData => ({
-      ...grantData,
-      currentPrice: grantData.ticker ? (priceMap[grantData.ticker] || 0) : 0,
-      id: crypto.randomUUID(),
-      lastUpdated: new Date().toISOString()
-    }));
-    onUpdateClient({ ...client, grants: [...client.grants, ...newGrants] });
+    const grantsWithPrices = await Promise.all(
+      grants.map(async (grantData) => {
+        let historicalPrice = 0;
+        if (grantData.ticker && grantData.grantDate) {
+          historicalPrice = await fetchStockPrice(grantData.ticker, grantData.grantDate);
+        }
+        return {
+          ...grantData,
+          currentPrice: grantData.ticker ? (currentPriceMap[grantData.ticker] || 0) : 0,
+          grantPrice: historicalPrice || undefined,
+          id: crypto.randomUUID(),
+          lastUpdated: new Date().toISOString()
+        } as Grant;
+      })
+    );
+
+    onUpdateClient({ ...client, grants: [...client.grants, ...grantsWithPrices] });
     setShowBulkUpload(false);
   };
 
