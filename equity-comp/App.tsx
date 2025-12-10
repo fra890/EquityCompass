@@ -5,9 +5,9 @@ import { ClientDetail } from './components/ClientDetail';
 import { VestingCalendar } from './components/VestingCalendar';
 import { Button } from './components/Button';
 import { Login } from './components/Login';
-import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays, Briefcase } from 'lucide-react';
+import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays, Briefcase, Trash2 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
-import { getClients, saveClient } from './services/supabaseService';
+import { getClients, saveClient, deleteClient } from './services/supabaseService';
 
 const App: React.FC = () => {
   // --- Auth State ---
@@ -83,6 +83,31 @@ const App: React.FC = () => {
 
     // Cloud Save
     await saveClient(user.id, updatedClient);
+  };
+
+  const handleDeleteClient = async (clientId: string) => {
+    if (!user) return;
+
+    const confirmDelete = window.confirm('Are you sure you want to delete this client? This action cannot be undone.');
+    if (!confirmDelete) return;
+
+    // Optimistic Update
+    setClients(clients.filter(c => c.id !== clientId));
+
+    // If the deleted client was selected, clear selection
+    if (selectedClientId === clientId) {
+      setSelectedClientId(null);
+    }
+
+    // Cloud Delete
+    try {
+      await deleteClient(user.id, clientId);
+    } catch (error) {
+      console.error('Failed to delete client:', error);
+      // Revert optimistic update on error
+      const originalClients = await getClients(user.id);
+      setClients(originalClients);
+    }
   };
 
   const handleLogout = async () => {
@@ -234,11 +259,21 @@ const App: React.FC = () => {
                 /* Client Grid */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredClients.map(client => (
-                    <div 
-                    key={client.id} 
+                    <div
+                    key={client.id}
                     onClick={() => setSelectedClientId(client.id)}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-tidemark-blue transition-all cursor-pointer group"
+                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-tidemark-blue transition-all cursor-pointer group relative"
                     >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClient(client.id);
+                      }}
+                      className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
+                      title="Delete Client"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     <div className="flex justify-between items-start mb-4">
                         <div className="w-12 h-12 bg-tidemark-blue/10 text-tidemark-navy rounded-full flex items-center justify-center font-bold text-xl group-hover:bg-tidemark-blue group-hover:text-white transition-colors">
                         {client.name.charAt(0)}

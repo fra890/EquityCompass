@@ -81,6 +81,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
         totalShares: grant.totalShares || 0,
         vestingSchedule: determineVestingSchedule(grant.cliffMonths, grant.vestingMonths),
         withholdingRate: grant.type === 'RSU' ? 22 : undefined,
+        customHeldShares: 0,
       })) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
 
       setExtractedGrants(formattedGrants);
