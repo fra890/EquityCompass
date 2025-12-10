@@ -748,6 +748,83 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
          </div>
       ) : (
         <div className="space-y-8 animate-fade-in print:space-y-6">
+            {/* Total Portfolio Value Overview */}
+            <div className="bg-gradient-to-br from-tidemark-navy via-blue-900 to-slate-800 rounded-2xl p-8 shadow-xl text-white break-inside-avoid">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-1">Total Equity Compensation Portfolio</h2>
+                        <p className="text-blue-200 text-sm">Comprehensive view of all stock-based compensation</p>
+                    </div>
+                    <Briefcase size={40} className="text-blue-300 opacity-50" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    {/* Vested Holdings */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span className="text-xs font-semibold text-blue-100 uppercase tracking-wide">Vested</span>
+                        </div>
+                        <div className="text-2xl font-bold">{formatCurrency(holdings.rsu.value)}</div>
+                        <div className="text-xs text-blue-200 mt-1">{formatNumber(holdings.rsu.shares)} shares</div>
+                    </div>
+
+                    {/* ISO Holdings */}
+                    {holdings.iso.length > 0 && (
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                                <span className="text-xs font-semibold text-blue-100 uppercase tracking-wide">ISO Exercised</span>
+                            </div>
+                            <div className="text-2xl font-bold">
+                                {formatCurrency(holdings.iso.reduce((sum, ex) => sum + ex.currentValue, 0))}
+                            </div>
+                            <div className="text-xs text-blue-200 mt-1">
+                                {formatNumber(holdings.iso.reduce((sum, ex) => sum + ex.shares, 0))} shares
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Unvested */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                            <span className="text-xs font-semibold text-blue-100 uppercase tracking-wide">Unvested</span>
+                        </div>
+                        <div className="text-2xl font-bold">{formatCurrency(unvestedRSUValue)}</div>
+                        <div className="text-xs text-blue-200 mt-1">Future pipeline</div>
+                    </div>
+
+                    {/* Total */}
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border-2 border-white/40">
+                        <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp size={14} className="text-yellow-300" />
+                            <span className="text-xs font-semibold text-yellow-200 uppercase tracking-wide">Total Value</span>
+                        </div>
+                        <div className="text-3xl font-bold text-yellow-300">
+                            {formatCurrency(
+                                holdings.rsu.value +
+                                unvestedRSUValue +
+                                holdings.iso.reduce((sum, ex) => sum + ex.currentValue, 0)
+                            )}
+                        </div>
+                        <div className="text-xs text-yellow-200 mt-1">All equity compensation</div>
+                    </div>
+                </div>
+
+                {/* Unrealized Gain if available */}
+                {holdings.rsu.hasGainData && holdings.rsu.totalGain !== 0 && (
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-blue-100">Total Unrealized Gain (Vested Holdings)</span>
+                            <span className={`text-xl font-bold ${holdings.rsu.totalGain >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                                {holdings.rsu.totalGain >= 0 ? '+' : ''}{formatCurrency(holdings.rsu.totalGain)}
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5 print:grid-cols-4 print:gap-4 break-inside-avoid">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm print:p-4 print:border-slate-300 print:shadow-none">
