@@ -5,7 +5,7 @@ import { ClientDetail } from './components/ClientDetail';
 import { VestingCalendar } from './components/VestingCalendar';
 import { Button } from './components/Button';
 import { Login } from './components/Login';
-import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays } from 'lucide-react';
+import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays, TrendingUp } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import { getClients, saveClient } from './services/supabaseService';
 
@@ -120,8 +120,8 @@ const App: React.FC = () => {
       {/* Mobile Header */}
       <div className="md:hidden bg-tidemark-navy text-white p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white font-bold text-sm">
-               EC
+             <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white">
+               <TrendingUp size={20} />
              </div>
              <span className="font-bold text-lg tracking-tight">EquityCompass</span>
         </div>
@@ -148,8 +148,8 @@ const App: React.FC = () => {
       `}>
         <div className="p-6 border-b border-slate-700/50 hidden md:block">
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white font-bold">
-               EC
+             <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white">
+               <TrendingUp size={20} />
              </div>
              <span className="font-bold text-lg text-white tracking-tight">EquityCompass</span>
           </div>
