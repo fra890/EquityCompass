@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Client, Grant, VestingEvent, PlannedExercise } from '../types';
+import { Client, Grant, VestingEvent, PlannedExercise, StockSale } from '../types';
 import { GrantForm } from './GrantForm';
 import { AddClientModal } from './AddClientModal';
 import { ISOPlanner } from './ISOPlanner';
+import { RecordSaleModal } from './RecordSaleModal';
 import { Button } from './Button';
-import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -94,6 +95,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   
   // State for Editing an Exercise
   const [editingExercise, setEditingExercise] = useState<PlannedExercise | null>(null);
+
+  // State for Recording Stock Sales
+  const [showRecordSale, setShowRecordSale] = useState(false);
+  const [saleGrant, setSaleGrant] = useState<Grant | null>(null);
 
   // --- Calculations ---
   const allEvents = useMemo(() => {
@@ -437,6 +442,51 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       }
   };
 
+  // --- Stock Sale Handlers ---
+  const handleRecordSale = (sale: Omit<StockSale, 'id' | 'createdAt'>) => {
+    const newSale: StockSale = {
+      ...sale,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedGrants = client.grants.map(g => {
+      if (g.id === sale.grantId) {
+        return {
+          ...g,
+          sales: [...(g.sales || []), newSale],
+        };
+      }
+      return g;
+    });
+
+    onUpdateClient({ ...client, grants: updatedGrants });
+    setShowRecordSale(false);
+    setSaleGrant(null);
+  };
+
+  const handleUpdateGrantNotes = (grantId: string, notes: string) => {
+    const updatedGrants = client.grants.map(g =>
+      g.id === grantId ? { ...g, planNotes: notes } : g
+    );
+    onUpdateClient({ ...client, grants: updatedGrants });
+  };
+
+  const handleDeleteSale = (grantId: string, saleId: string) => {
+    if (window.confirm("Delete this sale record?")) {
+      const updatedGrants = client.grants.map(g => {
+        if (g.id === grantId) {
+          return {
+            ...g,
+            sales: (g.sales || []).filter(s => s.id !== saleId),
+          };
+        }
+        return g;
+      });
+      onUpdateClient({ ...client, grants: updatedGrants });
+    }
+  };
+
   const downloadCSV = () => {
     const rows = [];
     rows.push([`EQUITY REPORT: ${client.name.toUpperCase()}`]);
@@ -582,11 +632,23 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
       {/* Edit Exercise Modal */}
       {editingExercise && (
-        <EditExerciseModal 
-            exercise={editingExercise} 
-            onSave={handleUpdateExercise} 
-            onCancel={() => setEditingExercise(null)} 
+        <EditExerciseModal
+            exercise={editingExercise}
+            onSave={handleUpdateExercise}
+            onCancel={() => setEditingExercise(null)}
             onDelete={() => handleDeleteExercise(editingExercise.id)}
+        />
+      )}
+
+      {/* Record Sale Modal */}
+      {showRecordSale && saleGrant && (
+        <RecordSaleModal
+          grant={saleGrant}
+          onSave={handleRecordSale}
+          onCancel={() => {
+            setShowRecordSale(false);
+            setSaleGrant(null);
+          }}
         />
       )}
 
@@ -911,6 +973,108 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                         </tr>
                                     </tfoot>
                                 </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Client Plan Notes & Sales History */}
+            <div className="space-y-6">
+                <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                    <FileText size={20} />
+                    Plan Notes & Sales History
+                </h3>
+
+                {client.grants.filter(g => g.type === 'RSU').map((grant) => {
+                    const totalSold = (grant.sales || []).reduce((sum, s) => sum + s.sharesSold, 0);
+                    const vestedSchedule = generateVestingSchedule(grant, client);
+                    const vestedShares = vestedSchedule.filter(e => new Date(e.date) <= new Date()).reduce((sum, e) => sum + e.shares, 0);
+                    const sharesRemaining = vestedShares - totalSold;
+
+                    return (
+                        <div key={grant.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h4 className="text-base font-bold text-tidemark-navy">{grant.companyName}</h4>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            Vested: {formatNumber(vestedShares)} | Sold: {formatNumber(totalSold)} |
+                                            <span className="font-semibold text-tidemark-navy"> Remaining: {formatNumber(sharesRemaining)}</span>
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => {
+                                            setSaleGrant(grant);
+                                            setShowRecordSale(true);
+                                        }}
+                                        className="flex items-center gap-2 text-sm"
+                                    >
+                                        <ShoppingCart size={16} />
+                                        Record Sale
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                                        Plan Notes
+                                    </label>
+                                    <textarea
+                                        value={grant.planNotes || ''}
+                                        onChange={(e) => handleUpdateGrantNotes(grant.id, e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none resize-none"
+                                        rows={3}
+                                        placeholder="What's the plan for this grant? (e.g., Hold for long-term, Diversify gradually, Sell to reduce concentration...)"
+                                    />
+                                </div>
+
+                                {grant.sales && grant.sales.length > 0 && (
+                                    <div>
+                                        <h5 className="text-sm font-bold text-slate-700 uppercase mb-3">Sales History</h5>
+                                        <div className="space-y-2">
+                                            {grant.sales.map((sale) => (
+                                                <div key={sale.id} className="flex items-start justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <span className="text-sm font-bold text-slate-900">
+                                                                {new Date(sale.saleDate).toLocaleDateString()}
+                                                            </span>
+                                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded">
+                                                                {sale.reason}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-sm text-slate-600">
+                                                            Sold {formatNumber(sale.sharesSold)} shares @ {formatCurrency(sale.salePrice)} =
+                                                            <span className="font-bold text-green-700 ml-1">
+                                                                {formatCurrency(sale.totalProceeds)}
+                                                            </span>
+                                                        </div>
+                                                        {sale.notes && (
+                                                            <div className="text-xs text-slate-500 mt-1 italic">{sale.notes}</div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteSale(grant.id, sale.id)}
+                                                        className="text-red-400 hover:text-red-600 transition-colors ml-2"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-semibold text-blue-900">Total Proceeds from Sales:</span>
+                                                <span className="text-xl font-bold text-blue-900">
+                                                    {formatCurrency((grant.sales || []).reduce((sum, s) => sum + s.totalProceeds, 0))}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );

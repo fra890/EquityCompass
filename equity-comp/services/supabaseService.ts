@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Client, Grant, PlannedExercise } from '../types';
+import { Client, Grant, PlannedExercise, StockSale } from '../types';
 
 interface DbClient {
   id: string;
@@ -31,6 +31,21 @@ interface DbGrant {
   withholding_rate?: number;
   custom_held_shares?: number;
   average_cost_basis?: number;
+  plan_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DbStockSale {
+  id: string;
+  grant_id: string;
+  client_id: string;
+  sale_date: string;
+  shares_sold: number;
+  sale_price: number;
+  total_proceeds: number;
+  reason: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -51,7 +66,21 @@ interface DbPlannedExercise {
   updated_at: string;
 }
 
-function dbGrantToGrant(dbGrant: DbGrant): Grant {
+function dbStockSaleToStockSale(dbSale: DbStockSale): StockSale {
+  return {
+    id: dbSale.id,
+    grantId: dbSale.grant_id,
+    saleDate: dbSale.sale_date,
+    sharesSold: dbSale.shares_sold,
+    salePrice: dbSale.sale_price,
+    totalProceeds: dbSale.total_proceeds,
+    reason: dbSale.reason,
+    notes: dbSale.notes,
+    createdAt: dbSale.created_at,
+  };
+}
+
+function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = []): Grant {
   return {
     id: dbGrant.id,
     type: dbGrant.type,
@@ -66,6 +95,8 @@ function dbGrantToGrant(dbGrant: DbGrant): Grant {
     withholdingRate: dbGrant.withholding_rate,
     customHeldShares: dbGrant.custom_held_shares,
     averageCostBasis: dbGrant.average_cost_basis,
+    planNotes: dbGrant.plan_notes,
+    sales: sales,
     lastUpdated: dbGrant.updated_at,
   };
 }
@@ -123,10 +154,26 @@ export const getClients = async (userId: string): Promise<Client[]> => {
     throw exercisesError;
   }
 
+  const { data: salesData, error: salesError } = await supabase
+    .from('stock_sales')
+    .select('*')
+    .in('client_id', clientIds)
+    .order('sale_date', { ascending: false });
+
+  if (salesError) {
+    console.error('Error fetching stock sales:', salesError);
+    throw salesError;
+  }
+
   const clients: Client[] = clientsData.map((dbClient: DbClient) => {
     const clientGrants = (grantsData || [])
       .filter((g: DbGrant) => g.client_id === dbClient.id)
-      .map(dbGrantToGrant);
+      .map((grant: DbGrant) => {
+        const grantSales = (salesData || [])
+          .filter((s: DbStockSale) => s.grant_id === grant.id)
+          .map(dbStockSaleToStockSale);
+        return dbGrantToGrant(grant, grantSales);
+      });
 
     const clientExercises = (exercisesData || [])
       .filter((e: DbPlannedExercise) => e.client_id === dbClient.id)
@@ -221,6 +268,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
       withholding_rate: grant.withholdingRate,
       custom_held_shares: grant.customHeldShares,
       average_cost_basis: grant.averageCostBasis,
+      plan_notes: grant.planNotes,
     };
 
     if (existingGrantIds.has(grant.id)) {
@@ -287,6 +335,69 @@ export const deleteClient = async (userId: string, clientId: string): Promise<vo
 
   if (error) {
     console.error('Error deleting client:', error);
+    throw error;
+  }
+};
+
+export const createStockSale = async (sale: Omit<StockSale, 'id' | 'createdAt'>, clientId: string): Promise<StockSale> => {
+  const saleData = {
+    grant_id: sale.grantId,
+    client_id: clientId,
+    sale_date: sale.saleDate,
+    shares_sold: sale.sharesSold,
+    sale_price: sale.salePrice,
+    total_proceeds: sale.totalProceeds,
+    reason: sale.reason,
+    notes: sale.notes,
+  };
+
+  const { data, error } = await supabase
+    .from('stock_sales')
+    .insert(saleData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating stock sale:', error);
+    throw error;
+  }
+
+  return dbStockSaleToStockSale(data);
+};
+
+export const updateStockSale = async (saleId: string, updates: Partial<Omit<StockSale, 'id' | 'grantId' | 'createdAt'>>): Promise<StockSale> => {
+  const updateData: any = {};
+
+  if (updates.saleDate) updateData.sale_date = updates.saleDate;
+  if (updates.sharesSold !== undefined) updateData.shares_sold = updates.sharesSold;
+  if (updates.salePrice !== undefined) updateData.sale_price = updates.salePrice;
+  if (updates.totalProceeds !== undefined) updateData.total_proceeds = updates.totalProceeds;
+  if (updates.reason) updateData.reason = updates.reason;
+  if (updates.notes !== undefined) updateData.notes = updates.notes;
+
+  const { data, error } = await supabase
+    .from('stock_sales')
+    .update(updateData)
+    .eq('id', saleId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating stock sale:', error);
+    throw error;
+  }
+
+  return dbStockSaleToStockSale(data);
+};
+
+export const deleteStockSale = async (saleId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('stock_sales')
+    .delete()
+    .eq('id', saleId);
+
+  if (error) {
+    console.error('Error deleting stock sale:', error);
     throw error;
   }
 };

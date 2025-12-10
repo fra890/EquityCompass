@@ -13,6 +13,18 @@ export interface PlannedExercise {
   estimatedCost: number;
 }
 
+export interface StockSale {
+  id: string;
+  grantId: string;
+  saleDate: string;
+  sharesSold: number;
+  salePrice: number;
+  totalProceeds: number;
+  reason: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Grant {
   id: string;
   type: GrantType;
@@ -23,12 +35,15 @@ export interface Grant {
   strikePrice?: number; // Only for ISO/Options
   grantDate: string; // ISO date string YYYY-MM-DD
   totalShares: number;
-  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly'; 
+  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly';
   withholdingRate?: number; // User elected withholding % (e.g., 22 or 37)
-  
+
   // New Fields for Manual Overrides
   customHeldShares?: number; // User override for "How many shares out of the grant holding"
   averageCostBasis?: number; // User override for cost basis of those held shares
+
+  planNotes?: string;
+  sales?: StockSale[];
 
   lastUpdated: string;
 }
