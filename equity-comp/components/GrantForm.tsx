@@ -84,7 +84,10 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
     }
   };
 
-  const handleDocumentData = (data: ExtractedGrantData) => {
+  const handleDocumentData = (grants: ExtractedGrantData[]) => {
+    if (grants.length === 0) return;
+
+    const data = grants[0];
     if (data.type) setType(data.type);
     if (data.ticker) setTicker(data.ticker);
     if (data.companyName) setCompanyName(data.companyName);
@@ -98,6 +101,10 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       } else if (data.cliffMonths === 0 && data.vestingMonths === 48) {
         setVestingSchedule('standard_4y_quarterly');
       }
+    }
+
+    if (grants.length > 1) {
+      alert(`Document contains ${grants.length} grants. Only the first grant has been pre-filled. Use "Upload Document" button to automatically import all grants.`);
     }
   };
 

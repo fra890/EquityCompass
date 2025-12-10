@@ -15,7 +15,7 @@ export interface ExtractedGrantData extends Partial<Grant> {
   vestingMonths?: number;
 }
 
-export const parseDocument = async (file: File): Promise<ExtractedGrantData> => {
+export const parseDocument = async (file: File): Promise<ExtractedGrantData[]> => {
   const fileType = file.type;
   let extractedText = '';
 
@@ -64,14 +64,15 @@ const parseExcel = async (file: File): Promise<string> => {
   return text;
 };
 
-const extractGrantData = async (text: string): Promise<ExtractedGrantData> => {
+const extractGrantData = async (text: string): Promise<ExtractedGrantData[]> => {
   const prompt = `
-You are an expert in analyzing equity compensation documents. Extract the following information from the provided text and return it as a JSON object. If any field is not found, set it to null.
+You are an expert in analyzing equity compensation documents. This document may contain one or more equity grants.
+Extract ALL grants from the document and return them as a JSON object with a "grants" array.
 
-Fields to extract:
+For each grant, extract:
 - grantType: "ISO", "NSO", "RSU", or "ESPP"
 - shares: number of shares granted (numeric value only)
-- strikePrice: strike/exercise price per share (numeric value only)
+- strikePrice: strike/exercise price per share (numeric value only, primarily for ISOs/Options)
 - grantDate: grant date (YYYY-MM-DD format)
 - vestingStartDate: vesting start date (YYYY-MM-DD format)
 - cliffMonths: cliff period in months (numeric value only)
@@ -79,7 +80,22 @@ Fields to extract:
 - companyName: name of the company issuing the grant
 - ticker: stock ticker symbol if available
 
-Return ONLY a valid JSON object with these exact field names. Do not include any markdown formatting or additional text.
+Return a JSON object with this structure:
+{
+  "grants": [
+    {
+      "grantType": "RSU",
+      "shares": 210,
+      "grantDate": "2017-04-10",
+      "companyName": "Tesla",
+      "ticker": "TSLA",
+      "cliffMonths": 12,
+      "vestingMonths": 48
+    }
+  ]
+}
+
+If any field is not found, omit it or set it to null. If only one grant is found, return an array with one item.
 
 Document text:
 ${text}
@@ -88,28 +104,29 @@ ${text}
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: 'You are an expert in analyzing equity compensation documents. Return only valid JSON.' },
+      { role: 'system', content: 'You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.' },
       { role: 'user', content: prompt }
     ],
     temperature: 0,
     response_format: { type: 'json_object' }
   });
 
-  const responseText = completion.choices[0].message.content || '{}';
+  const responseText = completion.choices[0].message.content || '{"grants":[]}';
 
   try {
     const parsedData = JSON.parse(responseText);
+    const grants = parsedData.grants || [];
 
-    return {
-      type: parsedData.grantType || undefined,
-      totalShares: parsedData.shares ? Number(parsedData.shares) : undefined,
-      strikePrice: parsedData.strikePrice ? Number(parsedData.strikePrice) : undefined,
-      grantDate: parsedData.grantDate || undefined,
-      companyName: parsedData.companyName || undefined,
-      ticker: parsedData.ticker || undefined,
-      cliffMonths: parsedData.cliffMonths ? Number(parsedData.cliffMonths) : undefined,
-      vestingMonths: parsedData.vestingMonths ? Number(parsedData.vestingMonths) : undefined,
-    };
+    return grants.map((grant: any) => ({
+      type: grant.grantType || undefined,
+      totalShares: grant.shares ? Number(grant.shares) : undefined,
+      strikePrice: grant.strikePrice ? Number(grant.strikePrice) : undefined,
+      grantDate: grant.grantDate || undefined,
+      companyName: grant.companyName || undefined,
+      ticker: grant.ticker || undefined,
+      cliffMonths: grant.cliffMonths ? Number(grant.cliffMonths) : undefined,
+      vestingMonths: grant.vestingMonths ? Number(grant.vestingMonths) : undefined,
+    }));
   } catch (error) {
     console.error('Error parsing OpenAI response:', error);
     throw new Error('Failed to parse document data. Please check the document format.');

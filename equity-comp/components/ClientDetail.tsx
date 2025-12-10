@@ -4,8 +4,9 @@ import { GrantForm } from './GrantForm';
 import { AddClientModal } from './AddClientModal';
 import { ISOPlanner } from './ISOPlanner';
 import { RecordSaleModal } from './RecordSaleModal';
+import BulkDocumentUpload from './BulkDocumentUpload';
 import { Button } from './Button';
-import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -92,13 +93,16 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   const [editingGrant, setEditingGrant] = useState<Grant | null>(null);
   const [showEditClient, setShowEditClient] = useState(false);
   const [simulateSellAll, setSimulateSellAll] = useState(false);
-  
+
   // State for Editing an Exercise
   const [editingExercise, setEditingExercise] = useState<PlannedExercise | null>(null);
 
   // State for Recording Stock Sales
   const [showRecordSale, setShowRecordSale] = useState(false);
   const [saleGrant, setSaleGrant] = useState<Grant | null>(null);
+
+  // State for Bulk Document Upload
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   // --- Calculations ---
   const allEvents = useMemo(() => {
@@ -364,9 +368,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   const handleSaveGrant = (grantData: Omit<Grant, 'id' | 'lastUpdated'>) => {
     if (editingGrant) {
       // Edit Mode
-      const updatedGrants = client.grants.map(g => 
-        g.id === editingGrant.id 
-          ? { ...grantData, id: editingGrant.id, lastUpdated: new Date().toISOString() } 
+      const updatedGrants = client.grants.map(g =>
+        g.id === editingGrant.id
+          ? { ...grantData, id: editingGrant.id, lastUpdated: new Date().toISOString() }
           : g
       );
       onUpdateClient({ ...client, grants: updatedGrants });
@@ -381,6 +385,16 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       onUpdateClient({ ...client, grants: [...client.grants, newGrant] });
     }
     setShowGrantForm(false);
+  };
+
+  const handleBulkGrantsExtracted = (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
+    const newGrants: Grant[] = grants.map(grantData => ({
+      ...grantData,
+      id: crypto.randomUUID(),
+      lastUpdated: new Date().toISOString()
+    }));
+    onUpdateClient({ ...client, grants: [...client.grants, ...newGrants] });
+    setShowBulkUpload(false);
   };
 
   const handleEditGrantClick = (grant: Grant) => {
@@ -623,6 +637,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                 <Download size={18} />
                 Full CSV Export
              </Button>
+             <Button variant="secondary" onClick={() => setShowBulkUpload(true)} className="gap-2">
+               <Upload size={20} />
+               Upload Document
+             </Button>
              <Button onClick={() => { setEditingGrant(null); setShowGrantForm(true); }} className="gap-2 shadow-md shadow-indigo-100">
                <Plus size={20} />
                Add Grant
@@ -686,6 +704,29 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                onCancel={() => { setShowGrantForm(false); setEditingGrant(null); }}
                initialData={editingGrant || undefined}
              />
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Document Upload Modal */}
+      {showBulkUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tidemark-navy/40 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 p-8 animate-in fade-in zoom-in duration-200 relative">
+             <button onClick={() => setShowBulkUpload(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={24} />
+             </button>
+             <div className="flex items-center gap-3 mb-6">
+                 <div className="p-2 bg-tidemark-blue/10 rounded-lg">
+                    <Upload className="text-tidemark-blue" size={20} />
+                 </div>
+                 <h3 className="text-xl font-bold text-tidemark-navy">Upload Grant Document</h3>
+             </div>
+
+             <p className="text-sm text-slate-600 mb-6">
+               Upload a PDF or Excel file containing one or more equity grants. The system will automatically extract and save all grants found in the document.
+             </p>
+
+             <BulkDocumentUpload onGrantsExtracted={handleBulkGrantsExtracted} />
           </div>
         </div>
       )}
