@@ -1844,7 +1844,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         {client.grants.length === 0 ? (
                         <div className="p-8 text-center text-slate-500 text-sm">No grants recorded yet.</div>
                         ) : (
-                        client.grants.map(grant => (
+                        [...client.grants].sort((a, b) => new Date(b.grantDate).getTime() - new Date(a.grantDate).getTime()).map(grant => (
                             <div key={grant.id} className="p-5 hover:bg-slate-50 transition-colors group relative">
                                 <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                     <button 
@@ -1868,8 +1868,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                     {grant.type}
                                     </span>
                                 </div>
-                                <div className="text-sm font-medium text-slate-600 mb-3">{grant.companyName}</div>
-                                
+                                <div className="text-sm font-medium text-slate-600 mb-1">{grant.companyName}</div>
+                                <div className="text-xs text-slate-400 mb-3">Granted: {new Date(grant.grantDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+
                                 <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500">
                                     <div>Price: <span className="font-medium text-slate-700">{formatCurrency(grant.currentPrice)}</span></div>
                                     {grant.type === 'ISO' && <div>Strike: <span className="font-medium text-slate-700">{formatCurrency(grant.strikePrice || 0)}</span></div>}
