@@ -146,6 +146,18 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   // --- Holdings Calculation (New Feature with ST/LT Split) ---
   const holdings = useMemo(() => {
+    interface TaxLot {
+      vestDate: string;
+      shares: number;
+      costBasis: number;
+      currentValue: number;
+      gain: number;
+      isLongTerm: boolean;
+      grantTicker: string;
+    }
+
+    const allLots: TaxLot[] = [];
+
     const rsuHoldings = client.grants
         .filter(g => g.type === 'RSU')
         .reduce((acc, grant) => {
@@ -153,20 +165,23 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
             let currentVal = 0;
             let shortTerm = 0;
             let longTerm = 0;
+            let shortTermValue = 0;
+            let longTermValue = 0;
+            let shortTermGain = 0;
+            let longTermGain = 0;
             let hasGainData = false;
             let totalGain = 0;
 
             // Generate past events for this grant to determine aging
             const events = generateVestingSchedule(grant, client, simulateSellAll);
             const pastEvents = events.filter(e => e.isPast).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            
+
             if (grant.customHeldShares !== undefined) {
                 // Manual Override
                 sharesHeld = grant.customHeldShares;
                 currentVal = sharesHeld * grant.currentPrice;
-                
+
                 // Estimate ST/LT using FIFO logic against the vesting schedule
-                // We "fill" the held bucket starting from the OLDEST vest date
                 let sharesToAccountFor = sharesHeld;
                 const now = new Date();
                 const oneYearAgo = new Date();
@@ -174,24 +189,47 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
                 for (const event of pastEvents) {
                     if (sharesToAccountFor <= 0) break;
-                    // For allocation purposes, assume we held the FULL vested amount if needed, 
-                    // or at least the net amount. Let's use 'shares' (gross) as maximum possible, 
-                    // but realistically we should track 'netShares'.
-                    // If user manually entered shares, they might have bought more or sold some.
-                    // We assume these shares originated from these vests.
-                    const availableInTranche = event.shares; // Using gross shares to be safe on attribution
+                    const availableInTranche = event.shares;
                     const alloc = Math.min(sharesToAccountFor, availableInTranche);
-                    
-                    if (new Date(event.date) < oneYearAgo) {
+                    const isLT = new Date(event.date) < oneYearAgo;
+
+                    if (isLT) {
                         longTerm += alloc;
+                        longTermValue += alloc * grant.currentPrice;
                     } else {
                         shortTerm += alloc;
+                        shortTermValue += alloc * grant.currentPrice;
                     }
+
+                    // Create lot
+                    if (grant.averageCostBasis !== undefined) {
+                        const lotCostBasis = alloc * grant.averageCostBasis;
+                        const lotCurrentValue = alloc * grant.currentPrice;
+                        const lotGain = lotCurrentValue - lotCostBasis;
+
+                        allLots.push({
+                            vestDate: event.date,
+                            shares: alloc,
+                            costBasis: lotCostBasis,
+                            currentValue: lotCurrentValue,
+                            gain: lotGain,
+                            isLongTerm: isLT,
+                            grantTicker: grant.ticker
+                        });
+
+                        if (isLT) {
+                            longTermGain += lotGain;
+                        } else {
+                            shortTermGain += lotGain;
+                        }
+                    }
+
                     sharesToAccountFor -= alloc;
                 }
-                // If any remaining (e.g. bought on open market or data mismatch), assign to Short Term conservatively
+
                 if (sharesToAccountFor > 0) {
                     shortTerm += sharesToAccountFor;
+                    shortTermValue += sharesToAccountFor * grant.currentPrice;
                 }
 
                 // Gain Calculation
@@ -207,15 +245,33 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                 oneYearAgo.setFullYear(now.getFullYear() - 1);
 
                 pastEvents.forEach(e => {
+                    const isLT = new Date(e.date) < oneYearAgo;
                     sharesHeld += e.netShares;
-                    if (new Date(e.date) < oneYearAgo) {
+
+                    if (isLT) {
                         longTerm += e.netShares;
+                        longTermValue += e.netShares * grant.currentPrice;
                     } else {
                         shortTerm += e.netShares;
+                        shortTermValue += e.netShares * grant.currentPrice;
                     }
+
+                    // Create lot (cost basis at vest = FMV at vest = current price for RSU)
+                    const lotCostBasis = e.netShares * grant.currentPrice;
+                    const lotCurrentValue = e.netShares * grant.currentPrice;
+                    const lotGain = 0; // No gain if using current price as basis
+
+                    allLots.push({
+                        vestDate: e.date,
+                        shares: e.netShares,
+                        costBasis: lotCostBasis,
+                        currentValue: lotCurrentValue,
+                        gain: lotGain,
+                        isLongTerm: isLT,
+                        grantTicker: grant.ticker
+                    });
                 });
                 currentVal = sharesHeld * grant.currentPrice;
-                // No Gain data available for auto-calc without historical prices
             }
 
             return {
@@ -223,18 +279,22 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                 value: acc.value + currentVal,
                 longTerm: acc.longTerm + longTerm,
                 shortTerm: acc.shortTerm + shortTerm,
+                longTermValue: acc.longTermValue + longTermValue,
+                shortTermValue: acc.shortTermValue + shortTermValue,
+                longTermGain: acc.longTermGain + longTermGain,
+                shortTermGain: acc.shortTermGain + shortTermGain,
                 totalGain: acc.totalGain + totalGain,
                 hasGainData: acc.hasGainData || hasGainData
             };
-        }, { shares: 0, value: 0, longTerm: 0, shortTerm: 0, totalGain: 0, hasGainData: false });
+        }, { shares: 0, value: 0, longTerm: 0, shortTerm: 0, longTermValue: 0, shortTermValue: 0, longTermGain: 0, shortTermGain: 0, totalGain: 0, hasGainData: false });
 
     const isoHoldings = (client.plannedExercises || []).map(ex => {
         const grant = client.grants.find(g => g.id === ex.grantId);
         if (!grant) return null;
-        
+
         const qualInfo = calculateISOQualification(grant.grantDate, ex.exerciseDate);
         const currentValue = ex.shares * grant.currentPrice;
-        
+
         return {
             ...ex,
             grantTicker: grant.ticker,
@@ -245,7 +305,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
         };
     }).filter(Boolean) as any[];
 
-    return { rsu: rsuHoldings, iso: isoHoldings };
+    return { rsu: rsuHoldings, iso: isoHoldings, lots: allLots };
   }, [allEvents, client.grants, client.plannedExercises, simulateSellAll]);
 
 
@@ -765,19 +825,31 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                             
                             {/* NEW: Term Breakdown and Gain */}
                             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                <div className="bg-white p-2 rounded border border-slate-100">
+                                <div className="bg-white p-2.5 rounded border border-slate-100">
                                     <span className="text-slate-400 block mb-0.5">Short Term (&lt;1yr)</span>
-                                    <span className="font-bold text-slate-700">{formatNumber(Math.round(holdings.rsu.shortTerm))} sh</span>
+                                    <span className="font-bold text-slate-700 block">{formatNumber(Math.round(holdings.rsu.shortTerm))} sh</span>
+                                    <span className="text-slate-500 text-xs">{formatCurrency(holdings.rsu.shortTermValue)}</span>
+                                    {holdings.rsu.hasGainData && holdings.rsu.shortTermGain !== 0 && (
+                                        <div className={`text-xs font-semibold mt-0.5 ${holdings.rsu.shortTermGain >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {holdings.rsu.shortTermGain >= 0 ? '+' : ''}{formatCurrency(holdings.rsu.shortTermGain)}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="bg-white p-2 rounded border border-slate-100">
+                                <div className="bg-white p-2.5 rounded border border-slate-100">
                                     <span className="text-slate-400 block mb-0.5">Long Term (&gt;1yr)</span>
-                                    <span className="font-bold text-slate-700">{formatNumber(Math.round(holdings.rsu.longTerm))} sh</span>
+                                    <span className="font-bold text-slate-700 block">{formatNumber(Math.round(holdings.rsu.longTerm))} sh</span>
+                                    <span className="text-slate-500 text-xs">{formatCurrency(holdings.rsu.longTermValue)}</span>
+                                    {holdings.rsu.hasGainData && holdings.rsu.longTermGain !== 0 && (
+                                        <div className={`text-xs font-semibold mt-0.5 ${holdings.rsu.longTermGain >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {holdings.rsu.longTermGain >= 0 ? '+' : ''}{formatCurrency(holdings.rsu.longTermGain)}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {holdings.rsu.hasGainData && (
                                 <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
-                                    <span className="text-xs text-slate-500 font-bold uppercase">Unrealized Gain</span>
+                                    <span className="text-xs text-slate-500 font-bold uppercase">Total Unrealized Gain</span>
                                     <span className={`text-sm font-bold ${holdings.rsu.totalGain >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                         {holdings.rsu.totalGain >= 0 ? '+' : ''}{formatCurrency(holdings.rsu.totalGain)}
                                     </span>
@@ -884,6 +956,59 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     </div>
                 </div>
             </div>
+
+            {/* Tax Lot Breakdown Table */}
+            {holdings.lots && holdings.lots.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
+                    <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <PieChart size={18} className="text-tidemark-blue" />
+                            Tax Lot Detail
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">Individual vesting events and cost basis tracking</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-3 text-left">Grant</th>
+                                    <th className="px-4 py-3 text-left">Vest Date</th>
+                                    <th className="px-4 py-3 text-right">Shares</th>
+                                    <th className="px-4 py-3 text-right">Cost Basis</th>
+                                    <th className="px-4 py-3 text-right">Current Value</th>
+                                    <th className="px-4 py-3 text-right">Gain/Loss</th>
+                                    <th className="px-4 py-3 text-center">Term</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {holdings.lots.map((lot, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-slate-900">{lot.grantTicker}</td>
+                                        <td className="px-4 py-3 text-slate-600">{lot.vestDate}</td>
+                                        <td className="px-4 py-3 text-right text-slate-700 font-mono">{formatNumber(lot.shares)}</td>
+                                        <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(lot.costBasis)}</td>
+                                        <td className="px-4 py-3 text-right text-slate-800 font-medium">{formatCurrency(lot.currentValue)}</td>
+                                        <td className="px-4 py-3 text-right">
+                                            <span className={`font-semibold ${lot.gain >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                {lot.gain >= 0 ? '+' : ''}{formatCurrency(lot.gain)}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                lot.isLongTerm
+                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                            }`}>
+                                                {lot.isLongTerm ? 'Long Term' : 'Short Term'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
              {/* Scenario Planning Engine - Hidden on print as it's interactive */}
             <div className="bg-gradient-to-r from-tidemark-navy to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden print:hidden">
