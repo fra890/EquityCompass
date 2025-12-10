@@ -10,6 +10,29 @@ import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Setti
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
+const fetchStockPrice = async (ticker: string): Promise<number> => {
+  if (!ticker) return 0;
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/fetch-stock-price?ticker=${encodeURIComponent(ticker)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    if (!response.ok) return 0;
+    const data = await response.json();
+    return data.price || 0;
+  } catch (error) {
+    console.error('Error fetching stock price:', error);
+    return 0;
+  }
+};
+
 interface ClientDetailProps {
   client: Client;
   onBack: () => void;
@@ -365,20 +388,25 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   // --- Handlers ---
 
-  const handleSaveGrant = (grantData: Omit<Grant, 'id' | 'lastUpdated'>) => {
+  const handleSaveGrant = async (grantData: Omit<Grant, 'id' | 'lastUpdated'>) => {
+    let finalGrantData = { ...grantData };
+
+    if (grantData.ticker && (!grantData.currentPrice || grantData.currentPrice === 0)) {
+      const price = await fetchStockPrice(grantData.ticker);
+      finalGrantData.currentPrice = price;
+    }
+
     if (editingGrant) {
-      // Edit Mode
       const updatedGrants = client.grants.map(g =>
         g.id === editingGrant.id
-          ? { ...grantData, id: editingGrant.id, lastUpdated: new Date().toISOString() }
+          ? { ...finalGrantData, id: editingGrant.id, lastUpdated: new Date().toISOString() }
           : g
       );
       onUpdateClient({ ...client, grants: updatedGrants });
       setEditingGrant(null);
     } else {
-      // Create Mode
       const newGrant: Grant = {
-        ...grantData,
+        ...finalGrantData,
         id: crypto.randomUUID(),
         lastUpdated: new Date().toISOString()
       };
@@ -387,9 +415,20 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
     setShowGrantForm(false);
   };
 
-  const handleBulkGrantsExtracted = (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
+  const handleBulkGrantsExtracted = async (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
+    const uniqueTickers = [...new Set(grants.map(g => g.ticker).filter(Boolean))];
+    const priceMap: Record<string, number> = {};
+
+    await Promise.all(
+      uniqueTickers.map(async (ticker) => {
+        const price = await fetchStockPrice(ticker);
+        priceMap[ticker] = price;
+      })
+    );
+
     const newGrants: Grant[] = grants.map(grantData => ({
       ...grantData,
+      currentPrice: grantData.ticker ? (priceMap[grantData.ticker] || 0) : 0,
       id: crypto.randomUUID(),
       lastUpdated: new Date().toISOString()
     }));

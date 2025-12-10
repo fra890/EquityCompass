@@ -62,6 +62,7 @@ const AMT_PARAMS_2026 = {
 };
 
 export const formatCurrency = (amount: number) => {
+  if (!Number.isFinite(amount)) return '$0';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -71,12 +72,14 @@ export const formatCurrency = (amount: number) => {
 };
 
 export const formatNumber = (num: number) => {
+  if (!Number.isFinite(num)) return '0';
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
   }).format(num);
 };
 
 export const formatPercent = (decimal: number) => {
+  if (!Number.isFinite(decimal)) return '0%';
   return `${(decimal * 100).toFixed(1)}%`;
 };
 
@@ -348,15 +351,15 @@ export const generateVestingSchedule = (grant: Grant, client: Client, simulateSe
 };
 
 const calculateEvent = (
-  date: Date, 
-  shares: number, 
-  grant: Grant, 
-  fedRate: number, 
+  date: Date,
+  shares: number,
+  grant: Grant,
+  fedRate: number,
   stateRate: number,
   electedRate: number,
   simulateSellAll: boolean
 ): VestingEvent => {
-  const price = grant.currentPrice;
+  const price = grant.currentPrice || 0;
   let grossValue = 0;
   let withholdingAmount = 0;
   let netShares = 0;
@@ -364,43 +367,41 @@ const calculateEvent = (
   let sharesSoldToCover = 0;
   let taxGap = 0;
   let amtExposure = 0;
-  
+
   let fedLiability = 0;
   let stateLiability = 0;
-  let niitLiability = 0; 
+  let niitLiability = 0;
 
   if (grant.type === 'ISO') {
     const strike = grant.strikePrice || 0;
     const spread = Math.max(0, price - strike);
-    
-    grossValue = spread * shares; 
-    
-    // Vesting is NOT a taxable event for ISOs.
-    amtExposure = 0; 
-    
+
+    grossValue = spread * shares;
+
+    amtExposure = 0;
+
     withholdingAmount = 0;
     netShares = shares;
-    netValue = shares * price; 
-    taxGap = 0; 
+    netValue = shares * price;
+    taxGap = 0;
 
   } else {
-    // RSU
     grossValue = shares * price;
     withholdingAmount = grossValue * electedRate;
-    
+
     fedLiability = grossValue * fedRate;
     stateLiability = grossValue * stateRate;
-    
+
     const totalLiability = fedLiability + stateLiability;
-    
+
     taxGap = Math.max(0, totalLiability - withholdingAmount);
 
     if (simulateSellAll) {
       netShares = 0;
-      sharesSoldToCover = shares; 
-      netValue = grossValue - withholdingAmount; 
+      sharesSoldToCover = shares;
+      netValue = grossValue - withholdingAmount;
     } else {
-      const sharesSoldForTax = withholdingAmount / price;
+      const sharesSoldForTax = price > 0 ? withholdingAmount / price : 0;
       sharesSoldToCover = sharesSoldForTax;
       netShares = Math.max(0, shares - sharesSoldForTax);
       netValue = netShares * price;
