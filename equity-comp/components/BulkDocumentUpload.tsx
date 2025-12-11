@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { Upload, FileText, X, AlertCircle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
-import { parseDocument } from '../utils/documentParser';
+import { Upload, FileText, X, AlertCircle, CheckCircle2, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { parseDocument, logParseResult, ParseResult } from '../utils/documentParser';
 import { Button } from './Button';
 import { Grant, GrantType } from '../types';
 
 interface BulkDocumentUploadProps {
   onGrantsExtracted: (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => void;
+  existingGrantIds?: string[];
 }
 
-const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtracted }) => {
+const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
+  onGrantsExtracted,
+  existingGrantIds = []
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [extractedGrants, setExtractedGrants] = useState<Array<Omit<Grant, 'id' | 'lastUpdated'>>>([]);
   const [showReview, setShowReview] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<string[]>([]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -47,13 +53,16 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setUploadedFile(file);
     setExtractedGrants([]);
     setShowReview(false);
+    setWarnings([]);
+    setDuplicateWarnings([]);
 
     const fileName = file.name.toLowerCase();
     const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
     const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                    file.type === 'application/vnd.ms-excel' ||
                    fileName.endsWith('.xlsx') ||
-                   fileName.endsWith('.xls');
+                   fileName.endsWith('.xls') ||
+                   fileName.endsWith('.csv');
 
     if (!isPdf && !isExcel) {
       setError('Please upload a PDF or Excel file.');
@@ -63,26 +72,59 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setIsProcessing(true);
 
     try {
-      const grants = await parseDocument(file);
+      const result: ParseResult = await parseDocument(file);
 
-      if (grants.length === 0) {
+      logParseResult(result);
+
+      if (result.warnings.length > 0) {
+        setWarnings(result.warnings);
+      }
+
+      if (result.grants.length === 0) {
         setError('No grants found in the document. Please check the document format.');
         setIsProcessing(false);
         return;
       }
 
-      const formattedGrants = grants.map(grant => ({
-        type: grant.type || 'RSU' as GrantType,
-        ticker: grant.ticker?.toUpperCase() || '',
-        companyName: grant.companyName || 'Unknown Company',
-        currentPrice: 0,
-        strikePrice: grant.strikePrice,
-        grantDate: grant.grantDate || new Date().toISOString().split('T')[0],
-        totalShares: grant.totalShares || 0,
-        vestingSchedule: determineVestingSchedule(grant.cliffMonths, grant.vestingMonths),
-        withholdingRate: grant.type === 'RSU' ? 22 : undefined,
-        customHeldShares: 0,
-      })) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
+      const duplicates: string[] = [];
+      const formattedGrants = result.grants
+        .filter(grant => {
+          if (grant.externalGrantId && existingGrantIds.includes(grant.externalGrantId)) {
+            duplicates.push(`Duplicate grant skipped: ${grant.externalGrantId} (${grant.type} - ${grant.totalShares} shares)`);
+            console.log(`[BulkUpload] Duplicate grant skipped: ${grant.externalGrantId}`);
+            return false;
+          }
+          return true;
+        })
+        .map(grant => ({
+          type: grant.type || 'RSU' as GrantType,
+          ticker: grant.ticker?.toUpperCase() || '',
+          companyName: grant.companyName || 'Unknown Company',
+          currentPrice: 0,
+          strikePrice: grant.strikePrice,
+          grantDate: grant.grantDate || new Date().toISOString().split('T')[0],
+          totalShares: grant.totalShares || 0,
+          vestingSchedule: determineVestingSchedule(grant.cliffMonths, grant.vestingMonths, grant.type),
+          withholdingRate: grant.type === 'RSU' ? 22 : undefined,
+          customHeldShares: 0,
+          externalGrantId: grant.externalGrantId,
+          esppDiscountPercent: grant.esppDiscountPercent,
+          esppPurchasePrice: grant.esppPurchasePrice,
+          esppOfferingStartDate: grant.esppOfferingStartDate,
+          esppOfferingEndDate: grant.esppOfferingEndDate,
+          esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart,
+          esppFmvAtPurchase: grant.esppFmvAtPurchase,
+        })) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
+
+      if (duplicates.length > 0) {
+        setDuplicateWarnings(duplicates);
+      }
+
+      if (formattedGrants.length === 0 && duplicates.length > 0) {
+        setError('All grants in this document already exist for this client.');
+        setIsProcessing(false);
+        return;
+      }
 
       setExtractedGrants(formattedGrants);
       setShowReview(true);
@@ -94,7 +136,14 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     }
   };
 
-  const determineVestingSchedule = (cliffMonths?: number, vestingMonths?: number): Grant['vestingSchedule'] => {
+  const determineVestingSchedule = (
+    cliffMonths?: number,
+    vestingMonths?: number,
+    grantType?: GrantType
+  ): Grant['vestingSchedule'] => {
+    if (grantType === 'ESPP') {
+      return 'immediate';
+    }
     if (cliffMonths === 12 && vestingMonths === 48) {
       return 'standard_4y_1y_cliff';
     } else if (cliffMonths === 0 && vestingMonths === 48) {
@@ -108,6 +157,8 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
     setError(null);
     setExtractedGrants([]);
     setShowReview(false);
+    setWarnings([]);
+    setDuplicateWarnings([]);
   };
 
   const handleSaveGrants = () => {
@@ -118,6 +169,16 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
 
   const handleRemoveGrant = (index: number) => {
     setExtractedGrants(extractedGrants.filter((_, i) => i !== index));
+  };
+
+  const formatGrantType = (type: GrantType): string => {
+    switch (type) {
+      case 'RSU': return 'RSU';
+      case 'ISO': return 'ISO';
+      case 'NSO': return 'NSO';
+      case 'ESPP': return 'ESPP';
+      default: return type;
+    }
   };
 
   return (
@@ -149,12 +210,12 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
           <input
             id="bulk-file-upload"
             type="file"
-            accept=".pdf,.xlsx,.xls"
+            accept=".pdf,.xlsx,.xls,.csv"
             className="hidden"
             onChange={handleFileInput}
           />
           <p className="text-xs text-slate-500 mt-2">
-            Supports PDF and Excel files (multiple grants per document)
+            Supports PDF and Excel files (RSU, ISO, NSO, ESPP grants)
           </p>
         </div>
       ) : (
@@ -184,6 +245,38 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
               <span>Processing document and extracting grants...</span>
             </div>
           )}
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">Warnings</p>
+              <ul className="text-sm text-yellow-700 mt-1 list-disc list-inside">
+                {warnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateWarnings.length > 0 && (
+        <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-orange-800">Duplicate Grants Detected</p>
+              <ul className="text-sm text-orange-700 mt-1 list-disc list-inside">
+                {duplicateWarnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
@@ -219,7 +312,12 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
                       Grant #{index + 1} - {grant.companyName}
                     </h4>
                     <p className="text-xs text-slate-500 mt-1">
-                      {grant.type} • {grant.totalShares} shares
+                      {formatGrantType(grant.type)} - {grant.totalShares} shares
+                      {grant.externalGrantId && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-slate-200 rounded text-slate-600">
+                          ID: {grant.externalGrantId}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button
@@ -234,7 +332,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500">Type:</span>
-                    <span className="ml-2 font-medium text-slate-800">{grant.type}</span>
+                    <span className="ml-2 font-medium text-slate-800">{formatGrantType(grant.type)}</span>
                   </div>
                   <div>
                     <span className="text-slate-500">Shares:</span>
@@ -256,10 +354,23 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({ onGrantsExtract
                       <span className="ml-2 font-medium text-slate-800">${grant.strikePrice}</span>
                     </div>
                   )}
+                  {grant.type === 'ESPP' && grant.esppDiscountPercent && (
+                    <div>
+                      <span className="text-slate-500">Discount:</span>
+                      <span className="ml-2 font-medium text-slate-800">{grant.esppDiscountPercent}%</span>
+                    </div>
+                  )}
+                  {grant.type === 'ESPP' && grant.esppPurchasePrice && (
+                    <div>
+                      <span className="text-slate-500">Purchase Price:</span>
+                      <span className="ml-2 font-medium text-slate-800">${grant.esppPurchasePrice}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-slate-500">Vesting:</span>
                     <span className="ml-2 font-medium text-slate-800">
-                      {grant.vestingSchedule === 'standard_4y_1y_cliff' ? '4yr/1yr cliff' : '4yr quarterly'}
+                      {grant.vestingSchedule === 'standard_4y_1y_cliff' ? '4yr/1yr cliff' :
+                       grant.vestingSchedule === 'immediate' ? 'Immediate' : '4yr quarterly'}
                     </span>
                   </div>
                 </div>

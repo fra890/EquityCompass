@@ -785,7 +785,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                Upload a PDF or Excel file containing equity grants. Review the extracted grants before adding them.
              </p>
 
-             <BulkDocumentUpload onGrantsExtracted={handleBulkGrantsExtracted} />
+             <BulkDocumentUpload
+               onGrantsExtracted={handleBulkGrantsExtracted}
+               existingGrantIds={client.grants.map(g => g.externalGrantId).filter(Boolean) as string[]}
+             />
           </div>
         </div>
       )}
@@ -1864,16 +1867,27 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                 </div>
                                 <div className="flex justify-between items-start mb-2">
                                     <span className="font-bold text-slate-800 text-lg">{grant.ticker || 'N/A'}</span>
-                                    <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${grant.type === 'ISO' ? 'bg-purple-100 text-purple-700' : 'bg-tidemark-blue/10 text-tidemark-navy'}`}>
+                                    <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
+                                      grant.type === 'ISO' ? 'bg-purple-100 text-purple-700' :
+                                      grant.type === 'NSO' ? 'bg-amber-100 text-amber-700' :
+                                      grant.type === 'ESPP' ? 'bg-green-100 text-green-700' :
+                                      'bg-tidemark-blue/10 text-tidemark-navy'
+                                    }`}>
                                     {grant.type}
                                     </span>
                                 </div>
                                 <div className="text-sm font-medium text-slate-600 mb-1">{grant.companyName}</div>
-                                <div className="text-xs text-slate-400 mb-3">Granted: {new Date(grant.grantDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                <div className="text-xs text-slate-400 mb-1">Granted: {new Date(grant.grantDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                {grant.externalGrantId && (
+                                  <div className="text-xs text-slate-400 mb-2">
+                                    <span className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-500">ID: {grant.externalGrantId}</span>
+                                  </div>
+                                )}
 
-                                <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500">
+                                <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500 mt-2">
                                     <div>Price: <span className="font-medium text-slate-700">{formatCurrency(grant.currentPrice)}</span></div>
-                                    {grant.type === 'ISO' && <div>Strike: <span className="font-medium text-slate-700">{formatCurrency(grant.strikePrice || 0)}</span></div>}
+                                    {(grant.type === 'ISO' || grant.type === 'NSO') && <div>Strike: <span className="font-medium text-slate-700">{formatCurrency(grant.strikePrice || 0)}</span></div>}
+                                    {grant.type === 'ESPP' && grant.esppDiscountPercent && <div>Discount: <span className="font-medium text-slate-700">{grant.esppDiscountPercent}%</span></div>}
                                     <div>Total: <span className="font-medium text-slate-700">{formatNumber(grant.totalShares)}</span></div>
                                     <div>Rate: <span className="font-medium text-slate-700">{grant.withholdingRate || 22}%</span></div>
                                 </div>

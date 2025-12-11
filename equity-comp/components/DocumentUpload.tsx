@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, FileText, X, AlertCircle } from 'lucide-react';
-import { parseDocument, ExtractedGrantData } from '../utils/documentParser';
+import { parseDocument, ExtractedGrantData, logParseResult } from '../utils/documentParser';
 import { Button } from './Button';
 
 interface DocumentUploadProps {
@@ -58,12 +58,14 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onDataExtracted }) => {
     setIsProcessing(true);
 
     try {
-      const extractedData = await parseDocument(file);
-      if (extractedData.length === 0) {
+      const result = await parseDocument(file);
+      logParseResult(result);
+
+      if (result.grants.length === 0) {
         setError('No grant data found in document. Please check the file contains equity grant information.');
         return;
       }
-      onDataExtracted(extractedData);
+      onDataExtracted(result.grants);
     } catch (err) {
       console.error('Document processing error:', err);
       setError(err instanceof Error ? err.message : 'Failed to process document');

@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
 import OpenAI from 'openai';
-import { Grant } from '../types';
+import { Grant, GrantType } from '../types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
@@ -10,12 +10,58 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
+export interface ParseLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  step: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface ExtractedGrantData extends Partial<Grant> {
   cliffMonths?: number;
   vestingMonths?: number;
+  externalGrantId?: string;
+  esppDiscountPercent?: number;
+  esppPurchasePrice?: number;
+  esppOfferingStartDate?: string;
+  esppOfferingEndDate?: string;
+  esppFmvAtOfferingStart?: number;
+  esppFmvAtPurchase?: number;
 }
 
-export const parseDocument = async (file: File): Promise<ExtractedGrantData[]> => {
+export interface ParseResult {
+  grants: ExtractedGrantData[];
+  logs: ParseLogEntry[];
+  warnings: string[];
+}
+
+const createLog = (
+  level: ParseLogEntry['level'],
+  step: string,
+  message: string,
+  metadata?: Record<string, unknown>
+): ParseLogEntry => ({
+  timestamp: new Date().toISOString(),
+  level,
+  step,
+  message,
+  metadata,
+});
+
+export const parseDocument = async (file: File): Promise<ParseResult> => {
+  const logs: ParseLogEntry[] = [];
+  const warnings: string[] = [];
+
+  const fileMetadata = {
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    lastModified: new Date(file.lastModified).toISOString(),
+  };
+
+  logs.push(createLog('info', 'init', 'Starting document parse', fileMetadata));
+
   const fileType = file.type;
   const fileName = file.name.toLowerCase();
   let extractedText = '';
@@ -24,63 +70,211 @@ export const parseDocument = async (file: File): Promise<ExtractedGrantData[]> =
   const isExcel = fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                   fileType === 'application/vnd.ms-excel' ||
                   fileName.endsWith('.xlsx') ||
-                  fileName.endsWith('.xls');
+                  fileName.endsWith('.xls') ||
+                  fileName.endsWith('.csv');
 
-  if (isPdf) {
-    extractedText = await parsePDF(file);
-  } else if (isExcel) {
-    extractedText = await parseExcel(file);
-  } else {
-    throw new Error('Unsupported file type. Please upload a PDF or Excel file.');
-  }
+  logs.push(createLog('info', 'file-detection', `Detected file type`, { isPdf, isExcel, mimeType: fileType }));
 
-  console.log('Extracted text from document:', extractedText.substring(0, 500));
-  return await extractGrantData(extractedText);
-};
+  try {
+    if (isPdf) {
+      logs.push(createLog('info', 'pdf-parse', 'Starting PDF extraction'));
+      extractedText = await parsePDF(file, logs);
+    } else if (isExcel) {
+      logs.push(createLog('info', 'excel-parse', 'Starting Excel extraction'));
+      extractedText = await parseExcel(file, logs);
+    } else {
+      const errorMsg = `Unsupported file type: ${fileType || 'unknown'}. Expected PDF or Excel.`;
+      logs.push(createLog('error', 'file-detection', errorMsg, { fileType, fileName }));
+      throw new Error(errorMsg);
+    }
 
-const parsePDF = async (file: File): Promise<string> => {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let text = '';
+    if (!extractedText || extractedText.trim().length < 10) {
+      const warnMsg = 'Extracted text is very short or empty - file may be corrupted or contain only images';
+      logs.push(createLog('warn', 'text-extraction', warnMsg, { textLength: extractedText?.length || 0 }));
+      warnings.push(warnMsg);
+    }
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item: any) => item.str)
-      .join(' ');
-    text += pageText + '\n';
-  }
+    logs.push(createLog('info', 'text-extraction', 'Text extraction complete', {
+      textLength: extractedText.length,
+      preview: extractedText.substring(0, 200),
+    }));
 
-  return text;
-};
+    const grants = await extractGrantData(extractedText, logs, warnings);
 
-const parseExcel = async (file: File): Promise<string> => {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  let text = '';
+    logs.push(createLog('info', 'complete', `Parse complete: found ${grants.length} grants`, {
+      grantCount: grants.length,
+      grantTypes: grants.map(g => g.type),
+    }));
 
-  workbook.SheetNames.forEach(sheetName => {
-    const sheet = workbook.Sheets[sheetName];
-    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+    return { grants, logs, warnings };
 
-    sheetData.forEach(row => {
-      text += row.join(' | ') + '\n';
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    logs.push(createLog('error', 'parse-error', errorMessage, {
+      stack: errorStack,
+      fileMetadata,
+    }));
+
+    console.error('[DocumentParser] Parse failed:', {
+      error: errorMessage,
+      stack: errorStack,
+      file: fileMetadata,
+      logs,
     });
-  });
 
-  return text;
+    throw new Error(`Failed to parse document: ${errorMessage}`);
+  }
 };
 
-const extractGrantData = async (text: string): Promise<ExtractedGrantData[]> => {
+const parsePDF = async (file: File, logs: ParseLogEntry[]): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    logs.push(createLog('info', 'pdf-parse', 'ArrayBuffer created', { byteLength: arrayBuffer.byteLength }));
+
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+
+    const pdf = await loadingTask.promise;
+    logs.push(createLog('info', 'pdf-parse', 'PDF document loaded', { numPages: pdf.numPages }));
+
+    let text = '';
+    let emptyPages = 0;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .trim();
+
+        if (pageText.length === 0) {
+          emptyPages++;
+          logs.push(createLog('warn', 'pdf-parse', `Page ${i} has no extractable text (may be scanned/image)`));
+        }
+
+        text += pageText + '\n';
+      } catch (pageError) {
+        logs.push(createLog('error', 'pdf-parse', `Failed to extract page ${i}`, {
+          error: pageError instanceof Error ? pageError.message : 'Unknown',
+        }));
+      }
+    }
+
+    if (emptyPages === pdf.numPages) {
+      logs.push(createLog('warn', 'pdf-parse', 'All pages appear to be images/scanned - OCR may be needed'));
+    }
+
+    return text;
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown PDF error';
+
+    if (errorMsg.includes('Invalid PDF') || errorMsg.includes('not recognized')) {
+      logs.push(createLog('error', 'pdf-parse', 'PDF file appears to be corrupted or invalid', { originalError: errorMsg }));
+      throw new Error('The PDF file could not be read. It may be corrupted, password-protected, or in an unsupported format.');
+    }
+
+    logs.push(createLog('error', 'pdf-parse', 'PDF parsing failed', { error: errorMsg }));
+    throw error;
+  }
+};
+
+const parseExcel = async (file: File, logs: ParseLogEntry[]): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    logs.push(createLog('info', 'excel-parse', 'ArrayBuffer created', { byteLength: arrayBuffer.byteLength }));
+
+    const workbook = XLSX.read(arrayBuffer, {
+      type: 'array',
+      cellDates: true,
+      cellNF: true,
+      cellText: true,
+      raw: false,
+    });
+
+    logs.push(createLog('info', 'excel-parse', 'Workbook loaded', {
+      sheetCount: workbook.SheetNames.length,
+      sheetNames: workbook.SheetNames,
+    }));
+
+    let text = '';
+    let totalRows = 0;
+
+    workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+      const sheet = workbook.Sheets[sheetName];
+
+      const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+      const rowCount = range.e.r - range.s.r + 1;
+      const colCount = range.e.c - range.s.c + 1;
+
+      logs.push(createLog('info', 'excel-parse', `Processing sheet: ${sheetName}`, {
+        sheetIndex,
+        rowCount,
+        colCount,
+      }));
+
+      const sheetData = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: '',
+        blankrows: false,
+        rawNumbers: false,
+      }) as any[][];
+
+      totalRows += sheetData.length;
+
+      text += `--- Sheet: ${sheetName} ---\n`;
+      sheetData.forEach((row) => {
+        const cleanRow = row.map(cell => {
+          if (cell === null || cell === undefined) return '';
+          if (cell instanceof Date) return cell.toISOString().split('T')[0];
+          return String(cell).trim();
+        });
+        text += cleanRow.join(' | ') + '\n';
+      });
+      text += '\n';
+    });
+
+    logs.push(createLog('info', 'excel-parse', 'Excel extraction complete', { totalRows }));
+
+    return text;
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown Excel error';
+
+    if (errorMsg.includes('File is password') || errorMsg.includes('Encrypted')) {
+      logs.push(createLog('error', 'excel-parse', 'Excel file is password protected'));
+      throw new Error('The Excel file is password protected and cannot be read.');
+    }
+
+    if (errorMsg.includes('not a valid') || errorMsg.includes('Corrupted')) {
+      logs.push(createLog('error', 'excel-parse', 'Excel file appears corrupted', { originalError: errorMsg }));
+      throw new Error('The Excel file could not be read. It may be corrupted or in an unsupported format.');
+    }
+
+    logs.push(createLog('error', 'excel-parse', 'Excel parsing failed', { error: errorMsg }));
+    throw error;
+  }
+};
+
+const extractGrantData = async (
+  text: string,
+  logs: ParseLogEntry[],
+  warnings: string[]
+): Promise<ExtractedGrantData[]> => {
+  logs.push(createLog('info', 'ai-extraction', 'Starting AI grant extraction'));
+
   const prompt = `
 You are an expert in analyzing equity compensation documents. This document may contain one or more equity grants.
 Extract ALL grants from the document and return them as a JSON object with a "grants" array.
 
-For each grant, extract:
+For each grant, extract these fields (if available):
+- grantId: External grant ID or award number (string, for tracking/deduplication)
 - grantType: "ISO", "NSO", "RSU", or "ESPP"
 - shares: number of shares granted (numeric value only)
-- strikePrice: strike/exercise price per share (numeric value only, primarily for ISOs/Options)
+- strikePrice: strike/exercise price per share (numeric, for ISOs/NSOs)
 - grantDate: grant date (YYYY-MM-DD format)
 - vestingStartDate: vesting start date (YYYY-MM-DD format)
 - cliffMonths: cliff period in months (numeric value only)
@@ -88,10 +282,19 @@ For each grant, extract:
 - companyName: name of the company issuing the grant
 - ticker: stock ticker symbol if available
 
+For ESPP grants specifically, also extract:
+- esppDiscountPercent: discount percentage (typically 15)
+- esppPurchasePrice: actual purchase price per share after discount
+- esppOfferingStartDate: start of offering period (YYYY-MM-DD)
+- esppOfferingEndDate: end of offering/purchase date (YYYY-MM-DD)
+- esppFmvAtOfferingStart: FMV at start of offering period
+- esppFmvAtPurchase: FMV at time of purchase
+
 Return a JSON object with this structure:
 {
   "grants": [
     {
+      "grantId": "RSU-2023-001234",
       "grantType": "RSU",
       "shares": 210,
       "grantDate": "2017-04-10",
@@ -109,34 +312,106 @@ Document text:
 ${text}
 `;
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: 'You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.' },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0,
-    response_format: { type: 'json_object' }
-  });
-
-  const responseText = completion.choices[0].message.content || '{"grants":[]}';
-
   try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array. Be thorough in extracting grant IDs and ESPP-specific fields.',
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0,
+      response_format: { type: 'json_object' }
+    });
+
+    const responseText = completion.choices[0].message.content || '{"grants":[]}';
+
+    logs.push(createLog('info', 'ai-extraction', 'AI response received', {
+      responseLength: responseText.length,
+      tokensUsed: completion.usage?.total_tokens,
+    }));
+
     const parsedData = JSON.parse(responseText);
     const grants = parsedData.grants || [];
 
-    return grants.map((grant: any) => ({
-      type: grant.grantType || undefined,
-      totalShares: grant.shares ? Number(grant.shares) : undefined,
-      strikePrice: grant.strikePrice ? Number(grant.strikePrice) : undefined,
-      grantDate: grant.grantDate || undefined,
-      companyName: grant.companyName || undefined,
-      ticker: grant.ticker || undefined,
-      cliffMonths: grant.cliffMonths ? Number(grant.cliffMonths) : undefined,
-      vestingMonths: grant.vestingMonths ? Number(grant.vestingMonths) : undefined,
-    }));
+    if (grants.length === 0) {
+      warnings.push('AI extraction found no grants in the document');
+      logs.push(createLog('warn', 'ai-extraction', 'No grants found in document'));
+    }
+
+    return grants.map((grant: any, index: number) => {
+      const extracted: ExtractedGrantData = {
+        type: normalizeGrantType(grant.grantType),
+        totalShares: grant.shares ? Number(grant.shares) : undefined,
+        strikePrice: grant.strikePrice ? Number(grant.strikePrice) : undefined,
+        grantDate: grant.grantDate || undefined,
+        companyName: grant.companyName || undefined,
+        ticker: grant.ticker || undefined,
+        cliffMonths: grant.cliffMonths ? Number(grant.cliffMonths) : undefined,
+        vestingMonths: grant.vestingMonths ? Number(grant.vestingMonths) : undefined,
+        externalGrantId: grant.grantId || undefined,
+        esppDiscountPercent: grant.esppDiscountPercent ? Number(grant.esppDiscountPercent) : undefined,
+        esppPurchasePrice: grant.esppPurchasePrice ? Number(grant.esppPurchasePrice) : undefined,
+        esppOfferingStartDate: grant.esppOfferingStartDate || undefined,
+        esppOfferingEndDate: grant.esppOfferingEndDate || undefined,
+        esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart ? Number(grant.esppFmvAtOfferingStart) : undefined,
+        esppFmvAtPurchase: grant.esppFmvAtPurchase ? Number(grant.esppFmvAtPurchase) : undefined,
+      };
+
+      logs.push(createLog('info', 'ai-extraction', `Extracted grant ${index + 1}`, {
+        type: extracted.type,
+        shares: extracted.totalShares,
+        grantId: extracted.externalGrantId,
+      }));
+
+      return extracted;
+    });
+
   } catch (error) {
-    console.error('Error parsing OpenAI response:', error);
-    throw new Error('Failed to parse document data. Please check the document format.');
+    const errorMsg = error instanceof Error ? error.message : 'Unknown AI error';
+    logs.push(createLog('error', 'ai-extraction', 'AI extraction failed', { error: errorMsg }));
+    throw new Error('Failed to extract grant data from document. Please check the document format.');
   }
+};
+
+const normalizeGrantType = (type: string | undefined): GrantType | undefined => {
+  if (!type) return undefined;
+
+  const normalized = type.toUpperCase().trim();
+
+  switch (normalized) {
+    case 'RSU':
+    case 'RESTRICTED STOCK UNIT':
+    case 'RESTRICTED STOCK UNITS':
+      return 'RSU';
+    case 'ISO':
+    case 'INCENTIVE STOCK OPTION':
+    case 'INCENTIVE STOCK OPTIONS':
+      return 'ISO';
+    case 'NSO':
+    case 'NQSO':
+    case 'NON-QUALIFIED STOCK OPTION':
+    case 'NON QUALIFIED STOCK OPTION':
+      return 'NSO';
+    case 'ESPP':
+    case 'EMPLOYEE STOCK PURCHASE PLAN':
+      return 'ESPP';
+    default:
+      return 'RSU';
+  }
+};
+
+export const logParseResult = (result: ParseResult): void => {
+  console.group('[DocumentParser] Parse Result');
+  console.log('Grants found:', result.grants.length);
+  console.log('Warnings:', result.warnings);
+  console.table(result.logs.map(l => ({
+    time: l.timestamp.split('T')[1],
+    level: l.level,
+    step: l.step,
+    message: l.message,
+  })));
+  console.groupEnd();
 };

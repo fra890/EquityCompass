@@ -1,4 +1,4 @@
-export type GrantType = 'RSU' | 'ISO';
+export type GrantType = 'RSU' | 'ISO' | 'ESPP' | 'NSO';
 
 export interface PlannedExercise {
   id: string;
@@ -28,24 +28,50 @@ export interface StockSale {
 export interface Grant {
   id: string;
   type: GrantType;
-  ticker: string; // Empty if private
+  ticker: string;
   companyName: string;
-  currentPrice: number; // FMV
-  grantPrice?: number; // FMV at time of Grant (Historical)
-  strikePrice?: number; // Only for ISO/Options
-  grantDate: string; // ISO date string YYYY-MM-DD
+  currentPrice: number;
+  grantPrice?: number;
+  strikePrice?: number;
+  grantDate: string;
   totalShares: number;
-  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly';
-  withholdingRate?: number; // User elected withholding % (e.g., 22 or 37)
+  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly' | 'immediate';
+  withholdingRate?: number;
 
-  // New Fields for Manual Overrides
-  customHeldShares?: number; // User override for "How many shares out of the grant holding"
-  averageCostBasis?: number; // User override for cost basis of those held shares
+  customHeldShares?: number;
+  averageCostBasis?: number;
+
+  externalGrantId?: string;
+
+  esppDiscountPercent?: number;
+  esppPurchasePrice?: number;
+  esppOfferingStartDate?: string;
+  esppOfferingEndDate?: string;
+  esppFmvAtOfferingStart?: number;
+  esppFmvAtPurchase?: number;
 
   planNotes?: string;
   sales?: StockSale[];
+  vestingPrices?: VestingPrice[];
 
   lastUpdated: string;
+}
+
+export interface VestingPrice {
+  id: string;
+  grantId: string;
+  vestDate: string;
+  priceAtVest: number;
+  sharesVested: number;
+  source: 'api' | 'manual' | 'document';
+}
+
+export interface AdvisorProfile {
+  id: string;
+  userId: string;
+  logoUrl?: string;
+  companyName?: string;
+  primaryColor?: string;
 }
 
 export interface Client {

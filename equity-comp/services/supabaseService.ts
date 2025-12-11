@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Client, Grant, PlannedExercise, StockSale } from '../types';
+import { Client, Grant, PlannedExercise, StockSale, VestingPrice, AdvisorProfile, GrantType } from '../types';
 
 interface DbClient {
   id: string;
@@ -19,7 +19,7 @@ interface DbClient {
 interface DbGrant {
   id: string;
   client_id: string;
-  type: 'RSU' | 'ISO';
+  type: GrantType;
   ticker: string;
   company_name: string;
   current_price: number;
@@ -31,7 +31,35 @@ interface DbGrant {
   withholding_rate?: number;
   custom_held_shares?: number;
   average_cost_basis?: number;
+  external_grant_id?: string;
+  espp_discount_percent?: number;
+  espp_purchase_price?: number;
+  espp_offering_start_date?: string;
+  espp_offering_end_date?: string;
+  espp_fmv_at_offering_start?: number;
+  espp_fmv_at_purchase?: number;
   plan_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DbVestingPrice {
+  id: string;
+  grant_id: string;
+  vest_date: string;
+  price_at_vest: number;
+  shares_vested: number;
+  source: 'api' | 'manual' | 'document';
+  created_at: string;
+  updated_at: string;
+}
+
+interface DbAdvisorProfile {
+  id: string;
+  user_id: string;
+  logo_url?: string;
+  company_name?: string;
+  primary_color?: string;
   created_at: string;
   updated_at: string;
 }
@@ -80,7 +108,28 @@ function dbStockSaleToStockSale(dbSale: DbStockSale): StockSale {
   };
 }
 
-function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = []): Grant {
+function dbVestingPriceToVestingPrice(dbVp: DbVestingPrice): VestingPrice {
+  return {
+    id: dbVp.id,
+    grantId: dbVp.grant_id,
+    vestDate: dbVp.vest_date,
+    priceAtVest: dbVp.price_at_vest,
+    sharesVested: dbVp.shares_vested,
+    source: dbVp.source,
+  };
+}
+
+function dbAdvisorProfileToAdvisorProfile(dbProfile: DbAdvisorProfile): AdvisorProfile {
+  return {
+    id: dbProfile.id,
+    userId: dbProfile.user_id,
+    logoUrl: dbProfile.logo_url,
+    companyName: dbProfile.company_name,
+    primaryColor: dbProfile.primary_color,
+  };
+}
+
+function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = [], vestingPrices: VestingPrice[] = []): Grant {
   return {
     id: dbGrant.id,
     type: dbGrant.type,
@@ -95,8 +144,16 @@ function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = []): Grant {
     withholdingRate: dbGrant.withholding_rate,
     customHeldShares: dbGrant.custom_held_shares,
     averageCostBasis: dbGrant.average_cost_basis,
+    externalGrantId: dbGrant.external_grant_id,
+    esppDiscountPercent: dbGrant.espp_discount_percent,
+    esppPurchasePrice: dbGrant.espp_purchase_price,
+    esppOfferingStartDate: dbGrant.espp_offering_start_date,
+    esppOfferingEndDate: dbGrant.espp_offering_end_date,
+    esppFmvAtOfferingStart: dbGrant.espp_fmv_at_offering_start,
+    esppFmvAtPurchase: dbGrant.espp_fmv_at_purchase,
     planNotes: dbGrant.plan_notes,
     sales: sales,
+    vestingPrices: vestingPrices,
     lastUpdated: dbGrant.updated_at,
   };
 }
@@ -165,6 +222,17 @@ export const getClients = async (userId: string): Promise<Client[]> => {
     throw salesError;
   }
 
+  const grantIds = (grantsData || []).map((g: DbGrant) => g.id);
+
+  const { data: vestingPricesData, error: vestingPricesError } = await supabase
+    .from('vesting_prices')
+    .select('*')
+    .in('grant_id', grantIds.length > 0 ? grantIds : ['00000000-0000-0000-0000-000000000000']);
+
+  if (vestingPricesError) {
+    console.error('Error fetching vesting prices:', vestingPricesError);
+  }
+
   const clients: Client[] = clientsData.map((dbClient: DbClient) => {
     const clientGrants = (grantsData || [])
       .filter((g: DbGrant) => g.client_id === dbClient.id)
@@ -172,7 +240,10 @@ export const getClients = async (userId: string): Promise<Client[]> => {
         const grantSales = (salesData || [])
           .filter((s: DbStockSale) => s.grant_id === grant.id)
           .map(dbStockSaleToStockSale);
-        return dbGrantToGrant(grant, grantSales);
+        const grantVestingPrices = (vestingPricesData || [])
+          .filter((vp: DbVestingPrice) => vp.grant_id === grant.id)
+          .map(dbVestingPriceToVestingPrice);
+        return dbGrantToGrant(grant, grantSales, grantVestingPrices);
       });
 
     const clientExercises = (exercisesData || [])
@@ -268,6 +339,13 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
       withholding_rate: grant.withholdingRate,
       custom_held_shares: grant.customHeldShares,
       average_cost_basis: grant.averageCostBasis,
+      external_grant_id: grant.externalGrantId,
+      espp_discount_percent: grant.esppDiscountPercent,
+      espp_purchase_price: grant.esppPurchasePrice,
+      espp_offering_start_date: grant.esppOfferingStartDate,
+      espp_offering_end_date: grant.esppOfferingEndDate,
+      espp_fmv_at_offering_start: grant.esppFmvAtOfferingStart,
+      espp_fmv_at_purchase: grant.esppFmvAtPurchase,
       plan_notes: grant.planNotes,
     };
 
@@ -400,4 +478,161 @@ export const deleteStockSale = async (saleId: string): Promise<void> => {
     console.error('Error deleting stock sale:', error);
     throw error;
   }
+};
+
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  existingGrant?: Grant;
+  conflictingFields?: string[];
+}
+
+export const checkDuplicateGrant = async (
+  clientId: string,
+  externalGrantId: string
+): Promise<DuplicateCheckResult> => {
+  if (!externalGrantId) {
+    return { isDuplicate: false };
+  }
+
+  const { data, error } = await supabase
+    .from('grants')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('external_grant_id', externalGrantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking duplicate grant:', error);
+    return { isDuplicate: false };
+  }
+
+  if (data) {
+    console.log(`Duplicate grant detected: external_grant_id=${externalGrantId}`);
+    return {
+      isDuplicate: true,
+      existingGrant: dbGrantToGrant(data),
+    };
+  }
+
+  return { isDuplicate: false };
+};
+
+export const checkGrantConflicts = (
+  existingGrant: Grant,
+  newGrant: Partial<Grant>
+): string[] => {
+  const conflicts: string[] = [];
+
+  if (newGrant.totalShares && existingGrant.totalShares !== newGrant.totalShares) {
+    conflicts.push(`totalShares: existing=${existingGrant.totalShares}, new=${newGrant.totalShares}`);
+  }
+  if (newGrant.grantDate && existingGrant.grantDate !== newGrant.grantDate) {
+    conflicts.push(`grantDate: existing=${existingGrant.grantDate}, new=${newGrant.grantDate}`);
+  }
+  if (newGrant.type && existingGrant.type !== newGrant.type) {
+    conflicts.push(`type: existing=${existingGrant.type}, new=${newGrant.type}`);
+  }
+
+  return conflicts;
+};
+
+export const getAdvisorProfile = async (userId: string): Promise<AdvisorProfile | null> => {
+  const { data, error } = await supabase
+    .from('advisor_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching advisor profile:', error);
+    return null;
+  }
+
+  return data ? dbAdvisorProfileToAdvisorProfile(data) : null;
+};
+
+export const saveAdvisorProfile = async (
+  userId: string,
+  profile: Partial<Omit<AdvisorProfile, 'id' | 'userId'>>
+): Promise<AdvisorProfile> => {
+  const { data: existing } = await supabase
+    .from('advisor_profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const profileData = {
+    user_id: userId,
+    logo_url: profile.logoUrl,
+    company_name: profile.companyName,
+    primary_color: profile.primaryColor,
+  };
+
+  let result;
+  if (existing) {
+    const { data, error } = await supabase
+      .from('advisor_profiles')
+      .update(profileData)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  } else {
+    const { data, error } = await supabase
+      .from('advisor_profiles')
+      .insert(profileData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  }
+
+  return dbAdvisorProfileToAdvisorProfile(result);
+};
+
+export const saveVestingPrice = async (
+  grantId: string,
+  vestDate: string,
+  priceAtVest: number,
+  sharesVested: number,
+  source: 'api' | 'manual' | 'document' = 'manual'
+): Promise<VestingPrice> => {
+  const { data, error } = await supabase
+    .from('vesting_prices')
+    .upsert({
+      grant_id: grantId,
+      vest_date: vestDate,
+      price_at_vest: priceAtVest,
+      shares_vested: sharesVested,
+      source,
+    }, {
+      onConflict: 'grant_id,vest_date',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving vesting price:', error);
+    throw error;
+  }
+
+  return dbVestingPriceToVestingPrice(data);
+};
+
+export const getVestingPricesForGrant = async (grantId: string): Promise<VestingPrice[]> => {
+  const { data, error } = await supabase
+    .from('vesting_prices')
+    .select('*')
+    .eq('grant_id', grantId)
+    .order('vest_date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching vesting prices:', error);
+    return [];
+  }
+
+  return (data || []).map(dbVestingPriceToVestingPrice);
 };

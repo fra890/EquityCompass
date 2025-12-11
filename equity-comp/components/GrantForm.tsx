@@ -116,11 +116,11 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       companyName,
       currentPrice: parseFloat(currentPrice),
       grantPrice: grantPrice ? parseFloat(grantPrice) : undefined,
-      strikePrice: type === 'ISO' && strikePrice !== '' ? parseFloat(strikePrice) : undefined,
+      strikePrice: (type === 'ISO' || type === 'NSO') && strikePrice !== '' ? parseFloat(strikePrice) : undefined,
       grantDate,
       totalShares: parseFloat(totalShares),
       vestingSchedule,
-      withholdingRate: type === 'RSU' ? parseFloat(withholdingRate) : undefined,
+      withholdingRate: (type === 'RSU' || type === 'ESPP') ? parseFloat(withholdingRate) : undefined,
       customHeldShares: customHeldShares ? parseFloat(customHeldShares) : undefined,
       averageCostBasis: averageCostBasis ? parseFloat(averageCostBasis) : undefined
     });
@@ -138,7 +138,7 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       {/* Type Selector */}
       <div>
         <label className={labelClass}>Grant Type</label>
-        <div className="flex p-1 bg-slate-100 rounded-lg w-full max-w-xs">
+        <div className="flex p-1 bg-slate-100 rounded-lg w-full">
            <button
              type="button"
              onClick={() => setType('RSU')}
@@ -151,7 +151,21 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
              onClick={() => setType('ISO')}
              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${type === 'ISO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
            >
-             ISO / Option
+             ISO
+           </button>
+           <button
+             type="button"
+             onClick={() => setType('NSO')}
+             className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${type === 'NSO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+           >
+             NSO
+           </button>
+           <button
+             type="button"
+             onClick={() => setType('ESPP')}
+             className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${type === 'ESPP' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+           >
+             ESPP
            </button>
         </div>
       </div>
@@ -225,7 +239,7 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       </div>
 
       <div className="grid grid-cols-2 gap-5">
-        {type === 'ISO' && (
+        {(type === 'ISO' || type === 'NSO') && (
            <div className="animate-fade-in">
              <label className={labelClass}>Strike Price ($)</label>
              <input
@@ -240,8 +254,8 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
              />
            </div>
         )}
-        
-        {type === 'RSU' && (
+
+        {(type === 'RSU' || type === 'ESPP') && (
            <div className="animate-fade-in">
              <label className={labelClass}>Elected Withholding (%)</label>
              <div className="relative">
