@@ -468,23 +468,28 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       }
     }
 
+    let savedGrant: Grant;
+
     if (editingGrant) {
+      savedGrant = { ...finalGrantData, id: editingGrant.id, lastUpdated: new Date().toISOString() };
       const updatedGrants = client.grants.map(g =>
-        g.id === editingGrant.id
-          ? { ...finalGrantData, id: editingGrant.id, lastUpdated: new Date().toISOString() }
-          : g
+        g.id === editingGrant.id ? savedGrant : g
       );
       onUpdateClient({ ...client, grants: updatedGrants });
       setEditingGrant(null);
     } else {
-      const newGrant: Grant = {
+      savedGrant = {
         ...finalGrantData,
         id: crypto.randomUUID(),
         lastUpdated: new Date().toISOString()
       };
-      onUpdateClient({ ...client, grants: [...client.grants, newGrant] });
+      onUpdateClient({ ...client, grants: [...client.grants, savedGrant] });
     }
     setShowGrantForm(false);
+
+    setTimeout(() => {
+      fetchHistoricalPricesForGrant(savedGrant);
+    }, 500);
   };
 
   const handleBulkGrantsExtracted = async (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
@@ -516,6 +521,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
     onUpdateClient({ ...client, grants: [...client.grants, ...grantsWithPrices] });
     setShowBulkUpload(false);
+
+    setTimeout(async () => {
+      for (const grant of grantsWithPrices) {
+        await fetchHistoricalPricesForGrant(grant);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }, 1000);
   };
 
   const handleEditGrantClick = (grant: Grant) => {
