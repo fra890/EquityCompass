@@ -270,13 +270,23 @@ const extractGrantData = async (
 You are an expert in analyzing equity compensation documents. This document may contain one or more equity grants.
 Extract ALL grants from the document and return them as a JSON object with a "grants" array.
 
+IMPORTANT DISTINCTIONS:
+- "grantDate" is the date the equity award was GRANTED/AWARDED to the employee (the original award date)
+- "vestDate" or vesting schedule dates are when shares VEST (become available) - these are NOT the grant date
+- If you see a table with multiple vesting dates and share amounts, these represent ONE grant with a vesting schedule
+- The TOTAL shares is the sum of all shares in the vesting schedule, NOT each row
+
+For documents with vesting schedules (tables showing Date | Shares | Price):
+- Sum ALL the shares in the table to get "shares" (total shares granted)
+- The grant date is typically mentioned separately, NOT in the vesting table
+- If only a vesting schedule is shown without a separate grant date, look for the earliest date mentioned in context BEFORE the vesting table, or note grantDate as null
+
 For each grant, extract these fields (if available):
-- grantId: External grant ID or award number (string, for tracking/deduplication)
+- grantId: External grant ID, award number, or plan ID (string, for tracking/deduplication)
 - grantType: "ISO", "NSO", "RSU", or "ESPP"
-- shares: number of shares granted (numeric value only)
+- shares: TOTAL number of shares in the grant (sum of all vesting tranches, numeric value only)
 - strikePrice: strike/exercise price per share (numeric, for ISOs/NSOs)
-- grantDate: grant date (YYYY-MM-DD format)
-- vestingStartDate: vesting start date (YYYY-MM-DD format)
+- grantDate: the date the grant was AWARDED (NOT vest dates) in YYYY-MM-DD format
 - cliffMonths: cliff period in months (numeric value only)
 - vestingMonths: total vesting period in months (numeric value only)
 - companyName: name of the company issuing the grant
@@ -290,20 +300,29 @@ For ESPP grants specifically, also extract:
 - esppFmvAtOfferingStart: FMV at start of offering period
 - esppFmvAtPurchase: FMV at time of purchase
 
+EXAMPLE: If document shows:
+"Award Date: April 10, 2017
+Vesting Schedule:
+4/10/2018 - 53 shares
+7/10/2018 - 53 shares
+10/10/2018 - 53 shares
+1/10/2019 - 52 shares"
+
+Return:
+{
+  "grants": [{
+    "grantId": "found-id-if-any",
+    "grantType": "RSU",
+    "shares": 211,  // SUM of 53+53+53+52
+    "grantDate": "2017-04-10",  // The Award Date, NOT the vest dates
+    "cliffMonths": 12,
+    "vestingMonths": 48
+  }]
+}
+
 Return a JSON object with this structure:
 {
-  "grants": [
-    {
-      "grantId": "RSU-2023-001234",
-      "grantType": "RSU",
-      "shares": 210,
-      "grantDate": "2017-04-10",
-      "companyName": "Tesla",
-      "ticker": "TSLA",
-      "cliffMonths": 12,
-      "vestingMonths": 48
-    }
-  ]
+  "grants": [...]
 }
 
 If any field is not found, omit it or set it to null. If only one grant is found, return an array with one item.
@@ -318,7 +337,14 @@ ${text}
       messages: [
         {
           role: 'system',
-          content: 'You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array. Be thorough in extracting grant IDs and ESPP-specific fields.',
+          content: `You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.
+
+CRITICAL RULES:
+1. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
+2. Total Shares: If you see a vesting schedule table, SUM all the shares to get the total. Do NOT return each row as a separate grant.
+3. One grant per award: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches.
+4. Date format: Always use YYYY-MM-DD format for dates.
+5. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.`,
         },
         { role: 'user', content: prompt }
       ],
