@@ -417,7 +417,7 @@ ${text}
         logs.push(createLog('info', 'ai-extraction', `Attempt ${attempt}/${maxRetries} to call OpenAI API`));
 
         completion = await openai.chat.completions.create({
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
