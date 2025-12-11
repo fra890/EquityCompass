@@ -342,10 +342,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         shortTermValue += e.netShares * grant.currentPrice;
                     }
 
-                    // Create lot (cost basis at vest = FMV at vest = current price for RSU)
-                    const lotCostBasis = e.netShares * grant.currentPrice;
+                    // Create lot (cost basis at vest = FMV at vest, which is e.priceAtVest)
+                    const lotCostBasis = e.netShares * e.priceAtVest;
                     const lotCurrentValue = e.netShares * grant.currentPrice;
-                    const lotGain = 0; // No gain if using current price as basis
+                    const lotGain = lotCurrentValue - lotCostBasis;
 
                     allLots.push({
                         vestDate: e.date,
@@ -356,8 +356,17 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         isLongTerm: isLT,
                         grantTicker: grant.ticker
                     });
+
+                    // Accumulate gains by term
+                    if (isLT) {
+                        longTermGain += lotGain;
+                    } else {
+                        shortTermGain += lotGain;
+                    }
+                    totalGain += lotGain;
                 });
                 currentVal = sharesHeld * grant.currentPrice;
+                hasGainData = true; // We have price data from vesting events
             }
 
             return {
