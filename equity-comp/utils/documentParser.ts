@@ -294,7 +294,14 @@ const extractGrantData = async (
 
   const prompt = `
 You are an expert in analyzing equity compensation documents. This document may contain one or more equity grants.
-Extract ALL grants from the document and return them as a JSON object with a "grants" array.
+
+STEP 1: FIRST, carefully count how many DISTINCT grants are in this document. Look for:
+- Separate grant agreements or award letters
+- Different Award IDs, Grant IDs, or Plan Numbers
+- Different grant dates for the same equity type
+- Different companies or tickers
+
+STEP 2: Extract ALL grants you counted. DO NOT skip any grants. If you counted 11 grants, you MUST return 11 grants.
 
 CRITICAL: ALWAYS look for and extract the company name and stock ticker symbol. These are often:
 - In the header/footer of the document
@@ -306,11 +313,13 @@ Common examples: "Apple Inc." (ticker: AAPL), "Microsoft Corporation" (ticker: M
 IMPORTANT DISTINCTIONS:
 - "grantDate" is the date the equity award was GRANTED/AWARDED to the employee (the original award date)
 - "vestDate" or vesting schedule dates are when shares VEST (become available) - these are NOT the grant date
-- If you see a table with multiple vesting dates and share amounts, these represent ONE grant with a vesting schedule
+- If you see a table with multiple vesting dates and share amounts FOR THE SAME GRANT ID, these represent ONE grant with a vesting schedule
 - The TOTAL shares is the sum of all shares in the vesting schedule, NOT each row
+- If you see DIFFERENT Grant IDs or Award Numbers, these are SEPARATE grants even if they vest on similar dates
 
 For documents with vesting schedules (tables showing Date | Shares | Price):
-- Sum ALL the shares in the table to get "shares" (total shares granted)
+- Sum ALL the shares in the table to get "shares" (total shares granted) ONLY if they belong to the same grant ID
+- If each row has a different grant ID or award number, treat each row as a SEPARATE grant
 - The grant date is typically mentioned separately, NOT in the vesting table
 - If only a vesting schedule is shown without a separate grant date, look for the earliest date mentioned in context BEFORE the vesting table, or note grantDate as null
 
@@ -333,8 +342,10 @@ For ESPP grants specifically, also extract:
 - esppFmvAtOfferingStart: FMV at start of offering period
 - esppFmvAtPurchase: FMV at time of purchase
 
-EXAMPLE: If document shows:
+EXAMPLE 1 - Single Grant with Vesting Schedule:
+If document shows:
 "Acme Corporation (ACME)
+Award ID: RSU-12345
 Award Date: April 10, 2017
 Vesting Schedule:
 4/10/2018 - 53 shares
@@ -347,13 +358,28 @@ Return:
   "grants": [{
     "companyName": "Acme Corporation",
     "ticker": "ACME",
-    "grantId": "found-id-if-any",
+    "grantId": "RSU-12345",
     "grantType": "RSU",
     "shares": 211,
     "grantDate": "2017-04-10",
     "cliffMonths": 12,
     "vestingMonths": 48
   }]
+}
+
+EXAMPLE 2 - Multiple Separate Grants:
+If document shows:
+"Grant ID: RSU-001, Date: 2020-01-15, Shares: 100
+Grant ID: RSU-002, Date: 2020-06-15, Shares: 150
+Grant ID: RSU-003, Date: 2021-01-15, Shares: 200"
+
+Return:
+{
+  "grants": [
+    {"grantId": "RSU-001", "grantType": "RSU", "shares": 100, "grantDate": "2020-01-15"},
+    {"grantId": "RSU-002", "grantType": "RSU", "shares": 150, "grantDate": "2020-06-15"},
+    {"grantId": "RSU-003", "grantType": "RSU", "shares": 200, "grantDate": "2021-01-15"}
+  ]
 }
 
 Return a JSON object with this structure:
@@ -369,19 +395,21 @@ ${text}
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
           content: `You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.
 
 CRITICAL RULES:
-1. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
-2. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
-3. Total Shares: If you see a vesting schedule table, SUM all the shares to get the total. Do NOT return each row as a separate grant.
-4. One grant per award: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches.
-5. Date format: Always use YYYY-MM-DD format for dates.
-6. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.`,
+1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
+2. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
+3. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
+4. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
+5. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
+6. Date format: Always use YYYY-MM-DD format for dates.
+7. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
+8. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.`,
         },
         { role: 'user', content: prompt }
       ],
@@ -408,6 +436,30 @@ CRITICAL RULES:
     if (grants.length === 0) {
       warnings.push('AI extraction found no grants in the document');
       logs.push(createLog('warn', 'ai-extraction', 'No grants found in document'));
+    }
+
+    // Verification pass: Check if we might have missed grants
+    const possibleGrantIndicators = [
+      /grant\s*(?:id|number|#)[\s:]*[\w\-]+/gi,
+      /award\s*(?:id|number|#)[\s:]*[\w\-]+/gi,
+      /plan\s*(?:id|number|#)[\s:]*[\w\-]+/gi,
+    ];
+
+    let estimatedGrantCount = 0;
+    possibleGrantIndicators.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        estimatedGrantCount = Math.max(estimatedGrantCount, matches.length);
+      }
+    });
+
+    if (estimatedGrantCount > grants.length && estimatedGrantCount <= 20) {
+      const warning = `Document appears to contain approximately ${estimatedGrantCount} grants, but only ${grants.length} were extracted. Please verify the document manually.`;
+      warnings.push(warning);
+      logs.push(createLog('warn', 'ai-extraction', warning, {
+        estimatedCount: estimatedGrantCount,
+        extractedCount: grants.length
+      }));
     }
 
     return grants.map((grant: any, index: number) => {
