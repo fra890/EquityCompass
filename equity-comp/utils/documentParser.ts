@@ -394,12 +394,21 @@ ${text}
 `;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.
+    // Retry logic for rate limits
+    let completion;
+    let lastError;
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logs.push(createLog('info', 'ai-extraction', `Attempt ${attempt}/${maxRetries} to call OpenAI API`));
+
+        completion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.
 
 CRITICAL RULES:
 1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
@@ -410,12 +419,40 @@ CRITICAL RULES:
 6. Date format: Always use YYYY-MM-DD format for dates.
 7. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
 8. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.`,
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0,
-      response_format: { type: 'json_object' }
-    });
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0,
+          response_format: { type: 'json_object' }
+        });
+
+        // Success - break out of retry loop
+        break;
+
+      } catch (apiError: any) {
+        lastError = apiError;
+
+        // Check if it's a rate limit error
+        if (apiError?.status === 429 || apiError?.message?.includes('429')) {
+          const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+          logs.push(createLog('warn', 'ai-extraction', `Rate limit hit. Waiting ${waitTime/1000}s before retry ${attempt}/${maxRetries}`, {
+            status: apiError.status,
+            message: apiError.message
+          }));
+
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        } else {
+          // For other errors, don't retry
+          throw apiError;
+        }
+      }
+    }
+
+    if (!completion) {
+      throw lastError || new Error('Failed to get completion from OpenAI after retries');
+    }
 
     const responseText = completion.choices[0].message.content || '{"grants":[]}';
 
@@ -507,10 +544,26 @@ CRITICAL RULES:
       return extracted;
     });
 
-  } catch (error) {
+  } catch (error: any) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown AI error';
-    logs.push(createLog('error', 'ai-extraction', 'AI extraction failed', { error: errorMsg }));
-    throw new Error('Failed to extract grant data from document. Please check the document format.');
+    logs.push(createLog('error', 'ai-extraction', 'AI extraction failed', {
+      error: errorMsg,
+      status: error?.status,
+      type: error?.type
+    }));
+
+    // Provide specific error messages based on error type
+    if (error?.status === 429 || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+      throw new Error('OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API quota at platform.openai.com/usage');
+    } else if (error?.status === 401 || errorMsg.includes('401') || errorMsg.includes('authentication')) {
+      throw new Error('OpenAI API authentication failed. Please check your API key in the .env file.');
+    } else if (error?.status === 403 || errorMsg.includes('403')) {
+      throw new Error('OpenAI API access denied. Your API key may not have access to GPT-4o. Check your API plan at platform.openai.com/account/billing');
+    } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+      throw new Error('Network error while contacting OpenAI API. Please check your internet connection and try again.');
+    } else {
+      throw new Error(`Failed to extract grant data: ${errorMsg}`);
+    }
   }
 };
 
