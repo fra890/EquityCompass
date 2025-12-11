@@ -10,6 +10,9 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 3000;
+
 export interface ParseLogEntry {
   timestamp: string;
   level: 'info' | 'warn' | 'error';
@@ -394,7 +397,17 @@ ${text}
 `;
 
   try {
-    // Retry logic for rate limits
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+      const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      logs.push(createLog('info', 'throttle', `Throttling: waiting ${Math.ceil(waitTime/1000)}s before making request`));
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    lastRequestTime = Date.now();
+
     let completion;
     let lastError;
     const maxRetries = 3;
@@ -554,7 +567,7 @@ CRITICAL RULES:
 
     // Provide specific error messages based on error type
     if (error?.status === 429 || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
-      throw new Error('OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API quota at platform.openai.com/usage');
+      throw new Error('Too many requests. Please wait 10-15 seconds before trying again. (OpenAI enforces rate limits to prevent abuse)');
     } else if (error?.status === 401 || errorMsg.includes('401') || errorMsg.includes('authentication')) {
       throw new Error('OpenAI API authentication failed. Please check your API key in the .env file.');
     } else if (error?.status === 403 || errorMsg.includes('403')) {

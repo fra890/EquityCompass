@@ -40,6 +40,11 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onDataExtracted }) => {
   };
 
   const handleFile = async (file: File) => {
+    if (isProcessing) {
+      console.log('Already processing a document, ignoring duplicate request');
+      return;
+    }
+
     setError(null);
     setUploadedFile(file);
 
