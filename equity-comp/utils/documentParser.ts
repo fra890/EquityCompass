@@ -96,7 +96,8 @@ export const parseDocument = async (file: File): Promise<ParseResult> => {
 
     logs.push(createLog('info', 'text-extraction', 'Text extraction complete', {
       textLength: extractedText.length,
-      preview: extractedText.substring(0, 200),
+      preview: extractedText.substring(0, 500),
+      fullText: extractedText, // Include full text for debugging
     }));
 
     const grants = await extractGrantData(extractedText, logs, warnings);
@@ -220,16 +221,41 @@ const parseExcel = async (file: File, logs: ParseLogEntry[]): Promise<string> =>
         header: 1,
         defval: '',
         blankrows: false,
-        rawNumbers: false,
+        raw: false, // Changed from rawNumbers: false to convert dates properly
+        dateNF: 'yyyy-mm-dd',
       }) as any[][];
 
       totalRows += sheetData.length;
 
       text += `--- Sheet: ${sheetName} ---\n`;
-      sheetData.forEach((row) => {
-        const cleanRow = row.map(cell => {
+      sheetData.forEach((row, rowIndex) => {
+        const cleanRow = row.map((cell, colIndex) => {
           if (cell === null || cell === undefined) return '';
-          if (cell instanceof Date) return cell.toISOString().split('T')[0];
+
+          // Check if the raw cell is a date
+          const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+          const rawCell = sheet[cellAddress];
+
+          if (rawCell && rawCell.t === 'd' && rawCell.v instanceof Date) {
+            // Format date as YYYY-MM-DD
+            const date = rawCell.v;
+            return date.toISOString().split('T')[0];
+          }
+
+          // Try to parse dates from strings
+          if (typeof cell === 'string' && cell.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/)) {
+            try {
+              const parsed = new Date(cell);
+              if (!isNaN(parsed.getTime())) {
+                return parsed.toISOString().split('T')[0];
+              }
+            } catch {}
+          }
+
+          if (cell instanceof Date) {
+            return cell.toISOString().split('T')[0];
+          }
+
           return String(cell).trim();
         });
         text += cleanRow.join(' | ') + '\n';
@@ -357,10 +383,16 @@ CRITICAL RULES:
     logs.push(createLog('info', 'ai-extraction', 'AI response received', {
       responseLength: responseText.length,
       tokensUsed: completion.usage?.total_tokens,
+      rawResponse: responseText, // Include full AI response for debugging
     }));
 
     const parsedData = JSON.parse(responseText);
     const grants = parsedData.grants || [];
+
+    logs.push(createLog('info', 'ai-extraction', 'Parsed AI response', {
+      grantCount: grants.length,
+      grantsData: grants, // Log the actual grant objects
+    }));
 
     if (grants.length === 0) {
       warnings.push('AI extraction found no grants in the document');
@@ -389,8 +421,25 @@ CRITICAL RULES:
       logs.push(createLog('info', 'ai-extraction', `Extracted grant ${index + 1}`, {
         type: extracted.type,
         shares: extracted.totalShares,
+        grantDate: extracted.grantDate,
         grantId: extracted.externalGrantId,
+        strikePrice: extracted.strikePrice,
+        company: extracted.companyName,
+        ticker: extracted.ticker,
       }));
+
+      // Validation warnings
+      if (!extracted.grantDate) {
+        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No grant date found - please verify`);
+      }
+
+      if (!extracted.totalShares || extracted.totalShares === 0) {
+        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No shares found - please verify`);
+      }
+
+      if (extracted.grantDate && extracted.grantDate > new Date().toISOString().split('T')[0]) {
+        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Grant date is in the future (${extracted.grantDate}) - this may be a vesting date instead of the grant date`);
+      }
 
       return extracted;
     });
@@ -432,12 +481,58 @@ const normalizeGrantType = (type: string | undefined): GrantType | undefined => 
 export const logParseResult = (result: ParseResult): void => {
   console.group('[DocumentParser] Parse Result');
   console.log('Grants found:', result.grants.length);
-  console.log('Warnings:', result.warnings);
+
+  if (result.grants.length > 0) {
+    console.group('📊 Extracted Grants');
+    result.grants.forEach((grant, i) => {
+      console.group(`Grant ${i + 1}: ${grant.companyName || 'Unknown'} (${grant.type || 'Unknown'})`);
+      console.log('External ID:', grant.externalGrantId || 'None');
+      console.log('Total Shares:', grant.totalShares || 'Missing');
+      console.log('Grant Date:', grant.grantDate || 'Missing');
+      console.log('Strike Price:', grant.strikePrice || 'N/A');
+      console.log('Ticker:', grant.ticker || 'N/A');
+      console.log('Vesting:', `${grant.cliffMonths || 0}mo cliff, ${grant.vestingMonths || 0}mo total`);
+      if (grant.esppDiscountPercent) {
+        console.log('ESPP Discount:', `${grant.esppDiscountPercent}%`);
+        console.log('ESPP Purchase Price:', grant.esppPurchasePrice);
+        console.log('ESPP Offering Start:', grant.esppOfferingStartDate);
+        console.log('ESPP Offering End:', grant.esppOfferingEndDate);
+      }
+      console.groupEnd();
+    });
+    console.groupEnd();
+  }
+
+  if (result.warnings.length > 0) {
+    console.group('⚠️ Warnings');
+    result.warnings.forEach(w => console.warn(w));
+    console.groupEnd();
+  }
+
+  console.group('📋 Detailed Logs');
   console.table(result.logs.map(l => ({
-    time: l.timestamp.split('T')[1],
+    time: l.timestamp.split('T')[1]?.substring(0, 12),
     level: l.level,
     step: l.step,
     message: l.message,
   })));
+
+  // Log extracted text
+  const textLog = result.logs.find(l => l.step === 'text-extraction' && l.metadata?.fullText);
+  if (textLog?.metadata?.fullText) {
+    console.group('📄 Extracted Text from Document');
+    console.log(textLog.metadata.fullText);
+    console.groupEnd();
+  }
+
+  // Log AI response
+  const aiLog = result.logs.find(l => l.step === 'ai-extraction' && l.metadata?.rawResponse);
+  if (aiLog?.metadata?.rawResponse) {
+    console.group('🤖 AI Raw Response');
+    console.log(aiLog.metadata.rawResponse);
+    console.groupEnd();
+  }
+
+  console.groupEnd();
   console.groupEnd();
 };
