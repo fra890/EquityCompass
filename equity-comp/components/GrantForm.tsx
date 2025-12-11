@@ -84,12 +84,28 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
     }
   };
 
-  const handleDocumentData = (grants: ExtractedGrantData[]) => {
+  const handleDocumentData = async (grants: ExtractedGrantData[]) => {
     if (grants.length === 0) return;
 
     const data = grants[0];
     if (data.type) setType(data.type);
-    if (data.ticker) setTicker(data.ticker);
+    if (data.ticker) {
+      setTicker(data.ticker);
+      // Auto-fetch stock price if ticker was extracted
+      if (data.ticker.trim()) {
+        setIsFetchingPrice(true);
+        setPriceError('');
+        try {
+          const priceData = await fetchStockPrice(data.ticker);
+          setCurrentPrice(priceData.price.toString());
+        } catch (err) {
+          console.error('Failed to fetch stock price:', err);
+          setPriceError('Could not auto-fetch price. Please enter manually.');
+        } finally {
+          setIsFetchingPrice(false);
+        }
+      }
+    }
     if (data.companyName) setCompanyName(data.companyName);
     if (data.strikePrice != null) setStrikePrice(String(data.strikePrice));
     if (data.grantDate) setGrantDate(data.grantDate);
