@@ -92,14 +92,15 @@ export interface VestingEvent {
   grantType: GrantType;
   date: string;
   shares: number;
-  grossValue: number; 
-  withholdingAmount: number; 
-  electedWithholdingRate: number; 
+  priceAtVest: number;
+  grossValue: number;
+  withholdingAmount: number;
+  electedWithholdingRate: number;
   netShares: number;
-  netValue: number; 
+  netValue: number;
   sharesSoldToCover: number;
   taxGap: number;
-  amtExposure: number; 
+  amtExposure: number;
   taxBreakdown: {
     fed: number;
     state: number;

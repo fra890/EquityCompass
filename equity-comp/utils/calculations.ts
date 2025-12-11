@@ -319,31 +319,65 @@ export const calculateAMTRoom = (client: Client) => {
 };
 
 
+const getHistoricalPriceForDate = (grant: Grant, vestDate: Date): number | undefined => {
+  if (!grant.vestingPrices || grant.vestingPrices.length === 0) {
+    return undefined;
+  }
+
+  const vestDateStr = vestDate.toISOString().split('T')[0];
+
+  const exactMatch = grant.vestingPrices.find(vp => vp.vestDate === vestDateStr);
+  if (exactMatch) {
+    return exactMatch.priceAtVest;
+  }
+
+  const vestDateTime = vestDate.getTime();
+  let closestPrice: number | undefined;
+  let closestDiff = Infinity;
+
+  for (const vp of grant.vestingPrices) {
+    const vpDate = new Date(vp.vestDate).getTime();
+    const diff = Math.abs(vpDate - vestDateTime);
+    if (diff < closestDiff && diff <= 7 * 24 * 60 * 60 * 1000) {
+      closestDiff = diff;
+      closestPrice = vp.priceAtVest;
+    }
+  }
+
+  return closestPrice;
+};
+
 export const generateVestingSchedule = (grant: Grant, client: Client, simulateSellAll: boolean = false): VestingEvent[] => {
   const events: VestingEvent[] = [];
   const grantDate = new Date(grant.grantDate);
   const totalShares = grant.totalShares;
   const clientTaxRate = client.taxBracket / 100;
-  
+  const now = new Date();
+
   const { stateRate } = getEffectiveRates(client);
-  
+
   const electedRate = (grant.withholdingRate !== undefined ? grant.withholdingRate : 22) / 100;
 
   if (grant.vestingSchedule === 'standard_4y_1y_cliff') {
     const cliffDate = addMonths(grantDate, 12);
     const cliffShares = totalShares * 0.25;
-    events.push(calculateEvent(cliffDate, cliffShares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll));
+    const cliffPrice = cliffDate < now ? getHistoricalPriceForDate(grant, cliffDate) : undefined;
+    events.push(calculateEvent(cliffDate, cliffShares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll, cliffPrice));
 
     for (let i = 1; i <= 12; i++) {
       const vestDate = addMonths(cliffDate, i * 3);
       const shares = (totalShares * 0.75) / 12;
-      events.push(calculateEvent(vestDate, shares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll));
+      const historicalPrice = vestDate < now ? getHistoricalPriceForDate(grant, vestDate) : undefined;
+      events.push(calculateEvent(vestDate, shares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll, historicalPrice));
     }
+  } else if (grant.vestingSchedule === 'immediate') {
+    events.push(calculateEvent(grantDate, totalShares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll));
   } else {
     const sharesPerTranche = totalShares / 16;
     for (let i = 1; i <= 16; i++) {
       const vestDate = addMonths(grantDate, i * 3);
-      events.push(calculateEvent(vestDate, sharesPerTranche, grant, clientTaxRate, stateRate, electedRate, simulateSellAll));
+      const historicalPrice = vestDate < now ? getHistoricalPriceForDate(grant, vestDate) : undefined;
+      events.push(calculateEvent(vestDate, sharesPerTranche, grant, clientTaxRate, stateRate, electedRate, simulateSellAll, historicalPrice));
     }
   }
 
@@ -357,9 +391,10 @@ const calculateEvent = (
   fedRate: number,
   stateRate: number,
   electedRate: number,
-  simulateSellAll: boolean
+  simulateSellAll: boolean,
+  priceOverride?: number
 ): VestingEvent => {
-  const price = grant.currentPrice || 0;
+  const price = priceOverride ?? grant.currentPrice ?? 0;
   let grossValue = 0;
   let withholdingAmount = 0;
   let netShares = 0;
@@ -412,6 +447,7 @@ const calculateEvent = (
     grantType: grant.type,
     date: date.toISOString().split('T')[0],
     shares,
+    priceAtVest: price,
     grossValue,
     withholdingAmount,
     electedWithholdingRate: electedRate * 100,

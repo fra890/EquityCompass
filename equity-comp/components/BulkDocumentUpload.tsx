@@ -4,14 +4,31 @@ import { parseDocument, logParseResult, ParseResult } from '../utils/documentPar
 import { Button } from './Button';
 import { Grant, GrantType } from '../types';
 
+interface ExistingGrantInfo {
+  externalGrantId: string;
+  totalShares: number;
+  grantDate: string;
+  type: GrantType;
+  ticker: string;
+}
+
 interface BulkDocumentUploadProps {
   onGrantsExtracted: (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => void;
   existingGrantIds?: string[];
+  existingGrants?: ExistingGrantInfo[];
+}
+
+interface ConflictWarning {
+  grantId: string;
+  field: string;
+  existingValue: string | number;
+  newValue: string | number;
 }
 
 const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
   onGrantsExtracted,
-  existingGrantIds = []
+  existingGrantIds = [],
+  existingGrants = []
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,6 +38,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
   const [showReview, setShowReview] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [duplicateWarnings, setDuplicateWarnings] = useState<string[]>([]);
+  const [conflictWarnings, setConflictWarnings] = useState<ConflictWarning[]>([]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -55,6 +73,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
     setShowReview(false);
     setWarnings([]);
     setDuplicateWarnings([]);
+    setConflictWarnings([]);
 
     const fileName = file.name.toLowerCase();
     const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
@@ -87,9 +106,40 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
       }
 
       const duplicates: string[] = [];
+      const conflicts: ConflictWarning[] = [];
+
       const formattedGrants = result.grants
         .filter(grant => {
           if (grant.externalGrantId && existingGrantIds.includes(grant.externalGrantId)) {
+            const existingGrant = existingGrants.find(g => g.externalGrantId === grant.externalGrantId);
+
+            if (existingGrant) {
+              if (existingGrant.totalShares !== grant.totalShares) {
+                conflicts.push({
+                  grantId: grant.externalGrantId,
+                  field: 'Total Shares',
+                  existingValue: existingGrant.totalShares,
+                  newValue: grant.totalShares || 0
+                });
+              }
+              if (existingGrant.type !== grant.type) {
+                conflicts.push({
+                  grantId: grant.externalGrantId,
+                  field: 'Grant Type',
+                  existingValue: existingGrant.type,
+                  newValue: grant.type || 'RSU'
+                });
+              }
+              if (existingGrant.grantDate !== grant.grantDate) {
+                conflicts.push({
+                  grantId: grant.externalGrantId,
+                  field: 'Grant Date',
+                  existingValue: existingGrant.grantDate,
+                  newValue: grant.grantDate || ''
+                });
+              }
+            }
+
             duplicates.push(`Duplicate grant skipped: ${grant.externalGrantId} (${grant.type} - ${grant.totalShares} shares)`);
             console.log(`[BulkUpload] Duplicate grant skipped: ${grant.externalGrantId}`);
             return false;
@@ -118,6 +168,10 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
 
       if (duplicates.length > 0) {
         setDuplicateWarnings(duplicates);
+      }
+
+      if (conflicts.length > 0) {
+        setConflictWarnings(conflicts);
       }
 
       if (formattedGrants.length === 0 && duplicates.length > 0) {
@@ -159,6 +213,7 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
     setShowReview(false);
     setWarnings([]);
     setDuplicateWarnings([]);
+    setConflictWarnings([]);
   };
 
   const handleSaveGrants = () => {
@@ -275,6 +330,32 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
                   <li key={i}>{warning}</li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conflictWarnings.length > 0 && (
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-red-800">DATA CONFLICT DETECTED</p>
+              <p className="text-xs text-red-700 mb-2">
+                The following grants have conflicting data between the document and existing records. Please verify which is correct.
+              </p>
+              <div className="space-y-2">
+                {conflictWarnings.map((conflict, i) => (
+                  <div key={i} className="text-sm bg-white rounded p-2 border border-red-200">
+                    <div className="font-medium text-red-800">Grant ID: {conflict.grantId}</div>
+                    <div className="text-red-700 mt-1">
+                      <span className="font-medium">{conflict.field}:</span>
+                      <span className="ml-2">Existing: <span className="font-mono bg-red-100 px-1 rounded">{conflict.existingValue}</span></span>
+                      <span className="ml-2">New: <span className="font-mono bg-red-100 px-1 rounded">{conflict.newValue}</span></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Client } from './types';
+import { Client, AdvisorProfile } from './types';
 import { AddClientModal } from './components/AddClientModal';
 import { ClientDetail } from './components/ClientDetail';
 import { VestingCalendar } from './components/VestingCalendar';
 import { Button } from './components/Button';
 import { Login } from './components/Login';
-import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays, Briefcase, Trash2 } from 'lucide-react';
+import { Users, LayoutGrid, LogOut, Search, Loader2, Menu, X, CalendarDays, Briefcase, Trash2, Settings, Palette } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
-import { getClients, saveClient, deleteClient } from './services/supabaseService';
+import { getClients, saveClient, deleteClient, getAdvisorProfile, saveAdvisorProfile } from './services/supabaseService';
 
 const App: React.FC = () => {
   // --- Auth State ---
@@ -26,18 +26,36 @@ const App: React.FC = () => {
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // --- Fetch Clients on Load ---
+  // Advisor Profile State
+  const [advisorProfile, setAdvisorProfile] = useState<AdvisorProfile | null>(null);
+  const [showBrandingModal, setShowBrandingModal] = useState(false);
+  const [brandingForm, setBrandingForm] = useState({ companyName: '', logoUrl: '', primaryColor: '#0066cc' });
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+
+  // --- Fetch Clients and Advisor Profile on Load ---
   useEffect(() => {
     if (user) {
       setIsLoading(true);
-      getClients(user.id)
-        .then(data => {
-          setClients(data);
+      Promise.all([
+        getClients(user.id),
+        getAdvisorProfile(user.id)
+      ])
+        .then(([clientsData, profileData]) => {
+          setClients(clientsData);
+          if (profileData) {
+            setAdvisorProfile(profileData);
+            setBrandingForm({
+              companyName: profileData.companyName || '',
+              logoUrl: profileData.logoUrl || '',
+              primaryColor: profileData.primaryColor || '#0066cc'
+            });
+          }
         })
         .catch(err => console.error(err))
         .finally(() => setIsLoading(false));
     } else {
       setClients([]);
+      setAdvisorProfile(null);
     }
   }, [user]);
 
@@ -122,6 +140,24 @@ const App: React.FC = () => {
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  const handleSaveBranding = async () => {
+    if (!user) return;
+    setIsSavingBranding(true);
+    try {
+      const savedProfile = await saveAdvisorProfile(user.id, {
+        companyName: brandingForm.companyName,
+        logoUrl: brandingForm.logoUrl,
+        primaryColor: brandingForm.primaryColor
+      });
+      setAdvisorProfile(savedProfile);
+      setShowBrandingModal(false);
+    } catch (err) {
+      console.error('Failed to save branding:', err);
+    } finally {
+      setIsSavingBranding(false);
+    }
+  };
+
   const navigateTo = (view: 'clients' | 'calendar') => {
     setActiveView(view);
     setSelectedClientId(null);
@@ -165,7 +201,7 @@ const App: React.FC = () => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-tidemark-navy text-slate-300 flex flex-col 
+        fixed inset-y-0 left-0 z-30 w-64 bg-tidemark-navy text-slate-300 flex flex-col
         transform transition-transform duration-300 ease-in-out
         md:translate-x-0 md:static md:h-screen
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -173,23 +209,33 @@ const App: React.FC = () => {
       `}>
         <div className="p-6 border-b border-slate-700/50 hidden md:block">
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white">
-               <Briefcase size={20} />
-             </div>
-             <span className="font-bold text-lg text-white tracking-tight">EquityCompass</span>
+             {advisorProfile?.logoUrl ? (
+               <img
+                 src={advisorProfile.logoUrl}
+                 alt={advisorProfile.companyName || 'Company Logo'}
+                 className="w-8 h-8 rounded-lg object-contain bg-white"
+               />
+             ) : (
+               <div className="w-8 h-8 bg-tidemark-blue rounded-lg flex items-center justify-center text-white">
+                 <Briefcase size={20} />
+               </div>
+             )}
+             <span className="font-bold text-lg text-white tracking-tight">
+               {advisorProfile?.companyName || 'EquityCompass'}
+             </span>
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 mt-4 md:mt-0">
-          <button 
+          <button
             onClick={() => navigateTo('clients')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeView === 'clients' && !selectedClientId ? 'bg-tidemark-blue text-white shadow-lg' : 'hover:bg-slate-800'}`}
           >
             <LayoutGrid size={20} />
             <span className="font-medium">Client Portfolio</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => navigateTo('calendar')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeView === 'calendar' ? 'bg-tidemark-blue text-white shadow-lg' : 'hover:bg-slate-800'}`}
           >
@@ -200,10 +246,19 @@ const App: React.FC = () => {
 
         <div className="p-4 border-t border-slate-700/50">
           <div className="bg-slate-800/50 rounded-lg p-4 mb-3">
-             <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Advisor</h4>
+             <div className="flex items-center justify-between mb-2">
+               <h4 className="text-xs font-semibold text-slate-400 uppercase">Advisor</h4>
+               <button
+                 onClick={() => setShowBrandingModal(true)}
+                 className="p-1 hover:bg-slate-700 rounded transition-colors"
+                 title="Branding Settings"
+               >
+                 <Settings size={14} className="text-slate-400" />
+               </button>
+             </div>
              <p className="text-sm text-white truncate">{user.email}</p>
           </div>
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 text-sm transition-colors"
           >
@@ -309,11 +364,103 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <AddClientModal 
-        isOpen={isAddClientModalOpen} 
+      <AddClientModal
+        isOpen={isAddClientModalOpen}
         onClose={() => setIsAddClientModalOpen(false)}
         onSave={handleAddClient}
       />
+
+      {showBrandingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-tidemark-navy to-tidemark-blue">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Palette size={20} />
+                Branding Settings
+              </h2>
+              <p className="text-sm text-blue-200">Customize your advisor portal appearance</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Company Name</label>
+                <input
+                  type="text"
+                  value={brandingForm.companyName}
+                  onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })}
+                  placeholder="Your Company Name"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Logo URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={brandingForm.logoUrl}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
+                    placeholder="https://example.com/logo.png"
+                    className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none"
+                  />
+                </div>
+                {brandingForm.logoUrl && (
+                  <div className="mt-3 p-3 bg-slate-50 rounded-lg flex items-center gap-3">
+                    <img
+                      src={brandingForm.logoUrl}
+                      alt="Logo Preview"
+                      className="w-12 h-12 rounded-lg object-contain bg-white border border-slate-200"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                    <span className="text-sm text-slate-600">Logo Preview</span>
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-2">
+                  Enter a URL to your logo image. Recommended size: 128x128px
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Primary Color</label>
+                <div className="flex gap-3 items-center">
+                  <input
+                    type="color"
+                    value={brandingForm.primaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
+                    className="w-12 h-12 rounded-lg cursor-pointer border-0"
+                  />
+                  <input
+                    type="text"
+                    value={brandingForm.primaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
+                    placeholder="#0066cc"
+                    className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowBrandingModal(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <Button onClick={handleSaveBranding} disabled={isSavingBranding}>
+                {isSavingBranding ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Branding'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

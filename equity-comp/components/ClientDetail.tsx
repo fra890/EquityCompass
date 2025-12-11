@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Client, Grant, VestingEvent, PlannedExercise, StockSale } from '../types';
+import { Client, Grant, VestingEvent, PlannedExercise, StockSale, VestingPrice } from '../types';
 import { GrantForm } from './GrantForm';
 import { AddClientModal } from './AddClientModal';
 import { ISOPlanner } from './ISOPlanner';
 import { RecordSaleModal } from './RecordSaleModal';
 import BulkDocumentUpload from './BulkDocumentUpload';
 import { Button } from './Button';
-import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { saveVestingPrice } from '../services/supabaseService';
 
 const fetchStockPrice = async (ticker: string, date?: string): Promise<number> => {
   if (!ticker) return 0;
@@ -40,7 +41,7 @@ interface ClientDetailProps {
   onUpdateClient: (updatedClient: Client) => void;
 }
 
-type Tab = 'overview' | 'rsu' | 'iso-planning' | 'history';
+type Tab = 'overview' | 'rsu' | 'espp' | 'iso-planning' | 'history';
 
 interface GrantYearData {
   year: string;
@@ -127,6 +128,58 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   // State for Bulk Document Upload
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+
+  // State for Historical Price Fetching
+  const [loadingHistoricalPrices, setLoadingHistoricalPrices] = useState<Record<string, boolean>>({});
+
+  const fetchHistoricalPricesForGrant = async (grant: Grant) => {
+    if (loadingHistoricalPrices[grant.id]) return;
+
+    setLoadingHistoricalPrices(prev => ({ ...prev, [grant.id]: true }));
+
+    try {
+      const schedule = generateVestingSchedule(grant, client);
+      const today = new Date();
+      const pastEvents = schedule.filter(e => new Date(e.date) <= today);
+
+      const existingDates = new Set((grant.vestingPrices || []).map(vp => vp.vestDate));
+      const datesToFetch = pastEvents
+        .filter(e => !existingDates.has(e.date))
+        .map(e => ({ date: e.date, shares: e.shares }));
+
+      if (datesToFetch.length === 0) {
+        setLoadingHistoricalPrices(prev => ({ ...prev, [grant.id]: false }));
+        return;
+      }
+
+      const newVestingPrices: VestingPrice[] = [...(grant.vestingPrices || [])];
+
+      for (let i = 0; i < datesToFetch.length; i++) {
+        const { date, shares } = datesToFetch[i];
+        try {
+          const price = await fetchStockPrice(grant.ticker, date);
+          if (price > 0) {
+            const savedPrice = await saveVestingPrice(grant.id, date, price, shares, 'api');
+            newVestingPrices.push(savedPrice);
+          }
+          if (i < datesToFetch.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (err) {
+          console.error(`Failed to fetch price for ${date}:`, err);
+        }
+      }
+
+      const updatedGrant = { ...grant, vestingPrices: newVestingPrices };
+      const updatedGrants = client.grants.map(g => g.id === grant.id ? updatedGrant : g);
+      onUpdateClient({ ...client, grants: updatedGrants });
+
+    } catch (err) {
+      console.error('Error fetching historical prices:', err);
+    } finally {
+      setLoadingHistoricalPrices(prev => ({ ...prev, [grant.id]: false }));
+    }
+  };
 
   // --- Calculations ---
   const allEvents = useMemo(() => {
@@ -788,6 +841,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
              <BulkDocumentUpload
                onGrantsExtracted={handleBulkGrantsExtracted}
                existingGrantIds={client.grants.map(g => g.externalGrantId).filter(Boolean) as string[]}
+               existingGrants={client.grants.filter(g => g.externalGrantId).map(g => ({
+                 externalGrantId: g.externalGrantId!,
+                 totalShares: g.totalShares,
+                 grantDate: g.grantDate,
+                 type: g.type,
+                 ticker: g.ticker
+               }))}
              />
           </div>
         </div>
@@ -806,6 +866,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'rsu' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
           RSU Details
+        </button>
+        <button
+          onClick={() => setActiveTab('espp')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'espp' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          ESPP Tracker
         </button>
         <button
           onClick={() => setActiveTab('iso-planning')}
@@ -976,6 +1042,8 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     const today = new Date();
                     const effectiveRates = getEffectiveRates(client);
                     const federalRate = client.taxBracket / 100;
+                    const pastEventsCount = schedule.filter(e => new Date(e.date) <= today).length;
+                    const hasAllHistoricalPrices = (grant.vestingPrices || []).length >= pastEventsCount;
 
                     return (
                         <div key={grant.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -988,10 +1056,29 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                             {grant.totalShares.toLocaleString()} shares @ {formatCurrency(grant.grantPrice || 0)}
                                         </p>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-sm font-semibold text-slate-500">Current Value</div>
-                                        <div className="text-xl font-bold text-tidemark-navy">
-                                            {formatCurrency(grant.totalShares * (grant.currentPrice || 0))}
+                                    <div className="flex items-center gap-4">
+                                        {pastEventsCount > 0 && !hasAllHistoricalPrices && (
+                                            <button
+                                                onClick={() => fetchHistoricalPricesForGrant(grant)}
+                                                disabled={loadingHistoricalPrices[grant.id]}
+                                                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-tidemark-blue hover:bg-tidemark-blue/10 rounded-lg transition-colors disabled:opacity-50"
+                                                title="Fetch historical stock prices for past vest dates"
+                                            >
+                                                <RefreshCw size={14} className={loadingHistoricalPrices[grant.id] ? 'animate-spin' : ''} />
+                                                {loadingHistoricalPrices[grant.id] ? 'Fetching...' : 'Fetch FMV History'}
+                                            </button>
+                                        )}
+                                        {hasAllHistoricalPrices && pastEventsCount > 0 && (
+                                            <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                                                <CheckCircle size={12} />
+                                                Historical FMV Loaded
+                                            </span>
+                                        )}
+                                        <div className="text-right">
+                                            <div className="text-sm font-semibold text-slate-500">Current Value</div>
+                                            <div className="text-xl font-bold text-tidemark-navy">
+                                                {formatCurrency(grant.totalShares * (grant.currentPrice || 0))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1015,12 +1102,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                     <tbody className="divide-y divide-slate-100">
                                         {schedule.map((event, idx) => {
                                             const isVested = new Date(event.date) <= today;
-                                            const fmv = grant.currentPrice || grant.grantPrice || 0;
-                                            const grossIncome = event.shares * fmv;
+                                            const fmvAtVest = event.priceAtVest || grant.currentPrice || 0;
+                                            const grossIncome = event.grossValue;
                                             const fedTax = grossIncome * federalRate;
                                             const stateTax = grossIncome * effectiveRates.stateRate;
                                             const totalTax = fedTax + stateTax;
                                             const netAfterTax = grossIncome - totalTax;
+                                            const hasHistoricalPrice = isVested && event.priceAtVest > 0 && event.priceAtVest !== grant.currentPrice;
 
                                             return (
                                                 <tr key={idx} className={`${isVested ? 'bg-emerald-50/30' : 'bg-white'} hover:bg-slate-50 transition-colors`}>
@@ -1030,8 +1118,8 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                                     <td className="px-4 py-3 text-sm text-right font-mono text-slate-700">
                                                         {formatNumber(event.shares)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-right font-mono text-slate-700">
-                                                        {formatCurrency(fmv)}
+                                                    <td className={`px-4 py-3 text-sm text-right font-mono ${hasHistoricalPrice ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} title={hasHistoricalPrice ? 'Historical price at vest date' : 'Current market price'}>
+                                                        {formatCurrency(fmvAtVest)}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-right font-mono font-medium text-tidemark-navy">
                                                         {formatCurrency(grossIncome)}
@@ -1201,6 +1289,285 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     </div>
                 </div>
             </div>
+        </div>
+      ) : activeTab === 'espp' ? (
+        <div className="space-y-8 animate-fade-in">
+            {(() => {
+                const esppGrants = client.grants.filter(g => g.type === 'ESPP');
+                const { stateRate, fedLtcgRate } = getEffectiveRates(client);
+                const federalOrdinaryRate = client.taxBracket / 100;
+
+                if (esppGrants.length === 0) {
+                    return (
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+                            <div className="max-w-md mx-auto">
+                                <ShoppingCart className="mx-auto text-slate-300 mb-4" size={48} />
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">No ESPP Plans Found</h3>
+                                <p className="text-slate-500 mb-4">
+                                    Add ESPP purchases to track your employee stock purchase plan holdings, calculate tax implications, and plan optimal sale timing.
+                                </p>
+                                <Button onClick={() => setShowGrantForm(true)} className="gap-2">
+                                    <Plus size={16} />
+                                    Add ESPP Purchase
+                                </Button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                const calculateESPPTax = (grant: Grant, salePrice: number, holdingPeriod: 'qualifying' | 'disqualifying') => {
+                    const purchasePrice = grant.esppPurchasePrice || grant.grantPrice || 0;
+                    const fmvAtPurchase = grant.esppFmvAtPurchase || grant.currentPrice;
+                    const fmvAtOfferingStart = grant.esppFmvAtOfferingStart || fmvAtPurchase;
+                    const discountPercent = grant.esppDiscountPercent || 15;
+                    const shares = grant.totalShares;
+
+                    const actualDiscount = Math.min(fmvAtOfferingStart, fmvAtPurchase!) * (discountPercent / 100);
+                    const totalProceeds = shares * salePrice;
+                    const totalCost = shares * purchasePrice;
+                    const totalGain = totalProceeds - totalCost;
+
+                    let ordinaryIncome = 0;
+                    let capitalGain = 0;
+
+                    if (holdingPeriod === 'qualifying') {
+                        ordinaryIncome = Math.min(actualDiscount * shares, totalGain);
+                        capitalGain = Math.max(0, totalGain - ordinaryIncome);
+                    } else {
+                        const bargainElement = (fmvAtPurchase! - purchasePrice) * shares;
+                        ordinaryIncome = Math.max(0, bargainElement);
+                        capitalGain = totalGain - ordinaryIncome;
+                    }
+
+                    const ordinaryTax = ordinaryIncome * (federalOrdinaryRate + stateRate);
+                    const capitalTax = capitalGain > 0
+                        ? capitalGain * (holdingPeriod === 'qualifying' ? fedLtcgRate + 0.038 : federalOrdinaryRate) + capitalGain * stateRate
+                        : capitalGain * stateRate;
+
+                    return {
+                        totalProceeds,
+                        totalCost,
+                        totalGain,
+                        ordinaryIncome,
+                        capitalGain,
+                        totalTax: ordinaryTax + capitalTax,
+                        netProfit: totalGain - ordinaryTax - capitalTax
+                    };
+                };
+
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-5">
+                                <div className="text-teal-600 font-semibold text-xs uppercase tracking-wide mb-1">Total ESPP Shares</div>
+                                <div className="text-2xl font-bold text-teal-900">
+                                    {formatNumber(esppGrants.reduce((sum, g) => sum + g.totalShares, 0))}
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5">
+                                <div className="text-blue-600 font-semibold text-xs uppercase tracking-wide mb-1">Current Value</div>
+                                <div className="text-2xl font-bold text-blue-900">
+                                    {formatCurrency(esppGrants.reduce((sum, g) => sum + g.totalShares * g.currentPrice, 0))}
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-5">
+                                <div className="text-emerald-600 font-semibold text-xs uppercase tracking-wide mb-1">Unrealized Gain</div>
+                                <div className="text-2xl font-bold text-emerald-900">
+                                    {formatCurrency(esppGrants.reduce((sum, g) => {
+                                        const cost = g.totalShares * (g.esppPurchasePrice || g.grantPrice || 0);
+                                        const value = g.totalShares * g.currentPrice;
+                                        return sum + (value - cost);
+                                    }, 0))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                                <ShoppingCart size={20} />
+                                ESPP Purchase Details
+                            </h3>
+
+                            {esppGrants.map((grant) => {
+                                const purchasePrice = grant.esppPurchasePrice || grant.grantPrice || 0;
+                                const fmvAtPurchase = grant.esppFmvAtPurchase || grant.currentPrice;
+                                const purchaseDate = new Date(grant.grantDate);
+                                const qualifyingDate = new Date(purchaseDate);
+                                qualifyingDate.setFullYear(qualifyingDate.getFullYear() + 2);
+                                const oneYearDate = new Date(purchaseDate);
+                                oneYearDate.setFullYear(oneYearDate.getFullYear() + 1);
+
+                                const now = new Date();
+                                const isQualifying = now >= qualifyingDate && now >= oneYearDate;
+                                const daysToQualifying = Math.max(0, Math.ceil((qualifyingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+                                const qualifyingTax = calculateESPPTax(grant, grant.currentPrice, 'qualifying');
+                                const disqualifyingTax = calculateESPPTax(grant, grant.currentPrice, 'disqualifying');
+                                const taxSavings = disqualifyingTax.totalTax - qualifyingTax.totalTax;
+
+                                return (
+                                    <div key={grant.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="px-6 py-4 bg-gradient-to-r from-teal-50 to-white border-b border-slate-200">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="text-base font-bold text-tidemark-navy flex items-center gap-2">
+                                                        {grant.companyName}
+                                                        <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">ESPP</span>
+                                                    </h4>
+                                                    <p className="text-sm text-slate-500">
+                                                        Purchased: {purchaseDate.toLocaleDateString()} |
+                                                        {formatNumber(grant.totalShares)} shares @ {formatCurrency(purchasePrice)}
+                                                        {grant.esppDiscountPercent && ` (${grant.esppDiscountPercent}% discount)`}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => { setEditingGrant(grant); setShowGrantForm(true); }}
+                                                        className="p-2 text-slate-400 hover:text-tidemark-blue transition-colors"
+                                                        title="Edit ESPP"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-semibold text-slate-500">Current Value</div>
+                                                        <div className="text-xl font-bold text-tidemark-navy">
+                                                            {formatCurrency(grant.totalShares * grant.currentPrice)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 space-y-6">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                <div className="bg-slate-50 rounded-lg p-3">
+                                                    <div className="text-xs text-slate-500 font-medium uppercase">Purchase Price</div>
+                                                    <div className="text-lg font-bold text-slate-800">{formatCurrency(purchasePrice)}</div>
+                                                </div>
+                                                <div className="bg-slate-50 rounded-lg p-3">
+                                                    <div className="text-xs text-slate-500 font-medium uppercase">FMV at Purchase</div>
+                                                    <div className="text-lg font-bold text-slate-800">{formatCurrency(fmvAtPurchase!)}</div>
+                                                </div>
+                                                <div className="bg-slate-50 rounded-lg p-3">
+                                                    <div className="text-xs text-slate-500 font-medium uppercase">Current Price</div>
+                                                    <div className="text-lg font-bold text-slate-800">{formatCurrency(grant.currentPrice)}</div>
+                                                </div>
+                                                <div className="bg-slate-50 rounded-lg p-3">
+                                                    <div className="text-xs text-slate-500 font-medium uppercase">Total Gain</div>
+                                                    <div className={`text-lg font-bold ${qualifyingTax.totalGain >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                        {formatCurrency(qualifyingTax.totalGain)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className={`p-4 rounded-lg ${isQualifying ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    {isQualifying ? (
+                                                        <CheckCircle className="text-emerald-600" size={20} />
+                                                    ) : (
+                                                        <Clock className="text-amber-600" size={20} />
+                                                    )}
+                                                    <div className="font-bold text-slate-800">
+                                                        {isQualifying ? 'Qualifying Disposition Available' : `${daysToQualifying} Days to Qualifying Disposition`}
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-slate-600">
+                                                    {isQualifying
+                                                        ? 'You can now sell with favorable tax treatment. Only the discount amount is taxed as ordinary income.'
+                                                        : `Hold until ${qualifyingDate.toLocaleDateString()} to qualify for favorable tax treatment and save approximately ${formatCurrency(taxSavings)}.`
+                                                    }
+                                                </p>
+                                                {!isQualifying && (
+                                                    <div className="mt-3">
+                                                        <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                                            <span>Progress to Qualifying</span>
+                                                            <span>{Math.round((1 - daysToQualifying / 730) * 100)}%</span>
+                                                        </div>
+                                                        <div className="h-2 bg-amber-200 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-amber-500 rounded-full transition-all"
+                                                                style={{ width: `${Math.max(0, Math.min(100, (1 - daysToQualifying / 730) * 100))}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                                                        <span className="font-bold text-sm text-slate-700">Qualifying Disposition</span>
+                                                        <span className="text-xs text-slate-500 ml-2">(Hold 2+ years)</span>
+                                                    </div>
+                                                    <div className="p-4 space-y-2 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Ordinary Income:</span>
+                                                            <span className="font-mono text-slate-800">{formatCurrency(qualifyingTax.ordinaryIncome)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Long-Term Capital Gain:</span>
+                                                            <span className="font-mono text-slate-800">{formatCurrency(qualifyingTax.capitalGain)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-red-600">
+                                                            <span>Estimated Tax:</span>
+                                                            <span className="font-mono font-bold">{formatCurrency(qualifyingTax.totalTax)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-emerald-600 pt-2 border-t border-slate-100">
+                                                            <span className="font-bold">Net Profit:</span>
+                                                            <span className="font-mono font-bold">{formatCurrency(qualifyingTax.netProfit)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                                                        <span className="font-bold text-sm text-slate-700">Disqualifying Disposition</span>
+                                                        <span className="text-xs text-slate-500 ml-2">(Sell early)</span>
+                                                    </div>
+                                                    <div className="p-4 space-y-2 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Ordinary Income:</span>
+                                                            <span className="font-mono text-slate-800">{formatCurrency(disqualifyingTax.ordinaryIncome)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-slate-600">Short-Term Capital Gain:</span>
+                                                            <span className="font-mono text-slate-800">{formatCurrency(disqualifyingTax.capitalGain)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-red-600">
+                                                            <span>Estimated Tax:</span>
+                                                            <span className="font-mono font-bold">{formatCurrency(disqualifyingTax.totalTax)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-emerald-600 pt-2 border-t border-slate-100">
+                                                            <span className="font-bold">Net Profit:</span>
+                                                            <span className="font-mono font-bold">{formatCurrency(disqualifyingTax.netProfit)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                            <div className="flex gap-4">
+                                <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                                <div>
+                                    <h4 className="font-bold text-amber-900 mb-2">ESPP Tax Planning Notes</h4>
+                                    <ul className="text-sm text-amber-800 space-y-2">
+                                        <li>• <strong>Qualifying Disposition:</strong> Hold shares 2+ years from offering start AND 1+ year from purchase</li>
+                                        <li>• <strong>Disqualifying Disposition:</strong> Selling before qualifying dates triggers ordinary income on the bargain element</li>
+                                        <li>• The discount portion (typically 15%) is always taxed as ordinary income regardless of holding period</li>
+                                        <li>• Your cost basis equals the actual purchase price (discounted price), not the fair market value</li>
+                                        <li>• Consider your overall portfolio concentration when deciding sale timing</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+            })()}
         </div>
       ) : activeTab === 'history' ? (
          <div className="space-y-8 animate-fade-in">
