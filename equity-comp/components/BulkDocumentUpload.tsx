@@ -108,6 +108,10 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
       const duplicates: string[] = [];
       const conflicts: ConflictWarning[] = [];
 
+      // Count existing RSU/ESPP grants to determine vesting schedule for new grants
+      const existingRSUCount = existingGrants.filter(g => g.type === 'RSU' || g.type === 'ESPP').length;
+      let rsuGrantsAddedSoFar = 0;
+
       const formattedGrants = result.grants
         .filter(grant => {
           if (grant.externalGrantId && existingGrantIds.includes(grant.externalGrantId)) {
@@ -146,25 +150,35 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
           }
           return true;
         })
-        .map(grant => ({
-          type: grant.type || 'RSU' as GrantType,
-          ticker: grant.ticker?.toUpperCase() || '',
-          companyName: grant.companyName || 'Unknown Company',
-          currentPrice: 0,
-          strikePrice: grant.strikePrice,
-          grantDate: grant.grantDate || new Date().toISOString().split('T')[0],
-          totalShares: grant.totalShares || 0,
-          vestingSchedule: determineVestingSchedule(grant.cliffMonths, grant.vestingMonths, grant.type),
-          withholdingRate: grant.type === 'RSU' ? 22 : undefined,
-          customHeldShares: 0,
-          externalGrantId: grant.externalGrantId,
-          esppDiscountPercent: grant.esppDiscountPercent,
-          esppPurchasePrice: grant.esppPurchasePrice,
-          esppOfferingStartDate: grant.esppOfferingStartDate,
-          esppOfferingEndDate: grant.esppOfferingEndDate,
-          esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart,
-          esppFmvAtPurchase: grant.esppFmvAtPurchase,
-        })) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
+        .map(grant => {
+          const grantType = grant.type || 'RSU' as GrantType;
+          const isRSUorESPP = grantType === 'RSU' || grantType === 'ESPP';
+          const isFirstRSUGrant = isRSUorESPP && existingRSUCount === 0 && rsuGrantsAddedSoFar === 0;
+
+          if (isRSUorESPP) {
+            rsuGrantsAddedSoFar++;
+          }
+
+          return {
+            type: grantType,
+            ticker: grant.ticker?.toUpperCase() || '',
+            companyName: grant.companyName || 'Unknown Company',
+            currentPrice: 0,
+            strikePrice: grant.strikePrice,
+            grantDate: grant.grantDate || new Date().toISOString().split('T')[0],
+            totalShares: grant.totalShares || 0,
+            vestingSchedule: determineVestingSchedule(grant.cliffMonths, grant.vestingMonths, grantType, isFirstRSUGrant),
+            withholdingRate: grantType === 'RSU' ? 22 : undefined,
+            customHeldShares: 0,
+            externalGrantId: grant.externalGrantId,
+            esppDiscountPercent: grant.esppDiscountPercent,
+            esppPurchasePrice: grant.esppPurchasePrice,
+            esppOfferingStartDate: grant.esppOfferingStartDate,
+            esppOfferingEndDate: grant.esppOfferingEndDate,
+            esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart,
+            esppFmvAtPurchase: grant.esppFmvAtPurchase,
+          };
+        }) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
 
       if (duplicates.length > 0) {
         setDuplicateWarnings(duplicates);
@@ -193,16 +207,29 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
   const determineVestingSchedule = (
     cliffMonths?: number,
     vestingMonths?: number,
-    grantType?: GrantType
+    grantType?: GrantType,
+    isFirstRSUGrant?: boolean
   ): Grant['vestingSchedule'] => {
     if (grantType === 'ESPP') {
       return 'immediate';
     }
+
+    // For RSUs: First grant gets cliff, subsequent grants get quarterly
+    if (grantType === 'RSU') {
+      if (isFirstRSUGrant) {
+        return 'standard_4y_1y_cliff';
+      } else {
+        return 'standard_4y_quarterly';
+      }
+    }
+
+    // For ISOs/NSOs, use the extracted cliff/vesting months
     if (cliffMonths === 12 && vestingMonths === 48) {
       return 'standard_4y_1y_cliff';
     } else if (cliffMonths === 0 && vestingMonths === 48) {
       return 'standard_4y_quarterly';
     }
+
     return 'standard_4y_1y_cliff';
   };
 
