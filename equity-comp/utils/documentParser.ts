@@ -230,7 +230,7 @@ const parseExcel = async (file: File, logs: ParseLogEntry[]): Promise<string> =>
 
       totalRows += sheetData.length;
 
-      text += `--- Sheet: ${sheetName} ---\n`;
+      text += `\n========== TAB: "${sheetName}" ==========\n`;
       sheetData.forEach((row, rowIndex) => {
         const cleanRow = row.map((cell, colIndex) => {
           if (cell === null || cell === undefined) return '';
@@ -263,7 +263,7 @@ const parseExcel = async (file: File, logs: ParseLogEntry[]): Promise<string> =>
         });
         text += cleanRow.join(' | ') + '\n';
       });
-      text += '\n';
+      text += `========== END TAB: "${sheetName}" ==========\n\n`;
     });
 
     logs.push(createLog('info', 'excel-parse', 'Excel extraction complete', { totalRows }));
@@ -317,19 +317,28 @@ VERIFICATION TASKS:
    - cliffMonths: Calculate months from grant date to FIRST vest date (commonly 12)
    - vestingMonths: Calculate months from grant date to FINAL/LAST vest date (commonly 48)
 
-2. Check for COMMON MISTAKES:
+2. MULTI-TAB DOCUMENTS:
+   If the document has multiple tabs/sections (Unvested, Exercisable, Sellable, Vested):
+   - ✅ Same Grant ID across tabs should be MERGED into ONE grant
+   - ✅ Prioritize "Unvested" tab for share counts
+   - ✅ Enrich with strike price, grant date from other tabs if missing
+   - ❌ Do NOT create duplicate grants for same Grant ID in different tabs
+
+3. Check for COMMON MISTAKES:
    - ❌ Grant date is actually a vest date (vest dates are typically 1-4 years AFTER grant date)
    - ❌ Shares count is from one vesting tranche instead of the TOTAL
    - ❌ Missing company name or ticker that IS present in the document
    - ❌ Duplicate grants that should be one grant with multiple vesting dates
-   - ❌ Missed grants that are in the document
+   - ❌ Duplicate grants from same Grant ID appearing in multiple tabs
+   - ❌ Missed grants that are in the document (especially in "Unvested" tab)
    - ❌ ISO misidentified as RSU or NSO (check for "Incentive" keyword)
    - ❌ cliffMonths not calculated (should be months to first vest)
    - ❌ vestingMonths calculated to first vest instead of last vest
+   - ❌ Missing strike price for ISOs/NSOs that appears in other tabs
 
-3. If you find ANY errors, return the CORRECTED grants array.
+4. If you find ANY errors, return the CORRECTED grants array.
 
-4. Count total unique grants in the original document and verify the count matches extracted grants.
+5. Count total unique grants in the original document and verify the count matches extracted grants.
 
 Return JSON with this structure:
 {
@@ -396,6 +405,12 @@ STEP 1: FIRST, carefully count how many DISTINCT grants are in this document. Lo
 - Different Award IDs, Grant IDs, or Plan Numbers
 - Different grant dates for the same equity type
 - Different companies or tickers
+
+MULTI-TAB DOCUMENTS: If this document has multiple tabs/sections (e.g., "Unvested", "Exercisable", "Sellable"):
+- The SAME Grant ID appearing across multiple tabs is the SAME grant - count it ONCE
+- Focus on "Unvested" tab for RSUs and future vesting
+- Use Grant IDs to correlate and merge data across tabs
+
 COUNT CAREFULLY. Write down the count before proceeding.
 
 STEP 2: Extract ALL grants you counted. DO NOT skip any grants. If you counted 11 grants, you MUST return 11 grants.
@@ -531,6 +546,39 @@ Return:
   ]
 }
 
+EXAMPLE 4 - Multi-Tab Document (MERGE by Grant ID):
+If document has tabs like:
+
+TAB: "Unvested"
+Grant ID: ISO-456, Shares: 750
+
+TAB: "Exercisable"
+Grant ID: ISO-456, Exercise Price: $15.00, Grant Date: 2022-03-01
+
+TAB: "Unvested"
+Grant ID: RSU-789, Shares: 200, Grant Date: 2023-01-15
+
+MERGE Grant ISO-456 data from both tabs into ONE grant. Count = 2 grants total.
+
+Return:
+{
+  "grants": [
+    {
+      "grantId": "ISO-456",
+      "grantType": "ISO",
+      "shares": 750,
+      "strikePrice": 15.00,
+      "grantDate": "2022-03-01"
+    },
+    {
+      "grantId": "RSU-789",
+      "grantType": "RSU",
+      "shares": 200,
+      "grantDate": "2023-01-15"
+    }
+  ]
+}
+
 Return a JSON object with this structure:
 {
   "grants": [...]
@@ -572,38 +620,48 @@ ${text}
 CRITICAL RULES:
 1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
 
-2. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
+2. MULTI-TAB/MULTI-SECTION DOCUMENTS - CRITICAL:
+   If the document has multiple tabs or sections (e.g., "Unvested", "Exercisable", "Sellable", "Vested"):
+   - Focus PRIMARY attention on the "Unvested" tab/section - this is where RSUs and future vesting is shown
+   - Use Grant ID/Grant Number/Award ID to CORRELATE the same grant across different tabs
+   - MERGE information from multiple tabs for the same Grant ID into ONE grant entry
+   - Example: If "Unvested" shows Grant-123 with shares but no strike price, and "Exercisable" shows Grant-123 with strike price $10, COMBINE them into ONE grant with both fields
+   - Do NOT create duplicate grants - same Grant ID = same grant, just merge the data
+   - If Grant ID appears in multiple tabs, take the MOST COMPLETE information from all tabs
+   - Prioritize unvested share counts but enrich with additional details (strike price, grant date) from other tabs
 
-3. Grant Type Recognition - BE PRECISE:
+3. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
+
+4. Grant Type Recognition - BE PRECISE:
    - ✅ "Incentive Stock Option" or "ISO" → grantType: "ISO" (NOT "NSO"!)
    - ✅ "Non-Qualified Stock Option" or "NSO" or "NQSO" → grantType: "NSO"
    - ✅ "Restricted Stock Unit" or "RSU" → grantType: "RSU"
    - ✅ "Employee Stock Purchase Plan" or "ESPP" → grantType: "ESPP"
    - ❌ Do NOT confuse ISO with NSO - they are different!
 
-4. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
+5. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
    - ✅ Correct: "Award Date: May 20, 2021" → grantDate: "2021-05-20"
    - ❌ Incorrect: Using a vest date from a vesting schedule table as the grant date
 
-5. Months Calculation - CRITICAL:
+6. Months Calculation - CRITICAL:
    - cliffMonths = months from grant date to FIRST vest date
    - vestingMonths = months from grant date to FINAL/LAST vest date (NOT quarterly, TOTAL!)
    - ✅ Correct: Grant 1/1/2020, first vest 1/1/2021, last vest 1/1/2024 → cliff:12, vesting:48
    - ❌ Incorrect: Using 3 for vestingMonths when it should be total period
 
-6. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
+7. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
    - ✅ Correct: Vesting table shows 88+22+22+... shares for Grant-123 → totalShares: 352 (sum of all)
    - ❌ Incorrect: Using just the first row (88 shares) as the total
 
-7. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
+8. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
 
-8. Date format: Always use YYYY-MM-DD format for dates.
+9. Date format: Always use YYYY-MM-DD format for dates.
 
-9. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
+10. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
 
-10. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
+11. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
 
-11. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
+12. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
             },
             { role: 'user', content: prompt }
           ],
