@@ -350,14 +350,24 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
     };
 
     if (existingGrantIds.has(grant.id)) {
-      await supabase
+      const { error } = await supabase
         .from('grants')
         .update(grantData)
         .eq('id', grant.id);
+
+      if (error) {
+        console.error('Error updating grant:', error, 'Grant data:', grantData);
+        throw error;
+      }
     } else {
-      await supabase
+      const { error } = await supabase
         .from('grants')
         .insert({ ...grantData, id: grant.id });
+
+      if (error) {
+        console.error('Error inserting grant:', error, 'Grant data:', grantData);
+        throw error;
+      }
     }
   }
 

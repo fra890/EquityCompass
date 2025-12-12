@@ -96,11 +96,24 @@ const App: React.FC = () => {
   const handleUpdateClient = async (updatedClient: Client) => {
     if (!user) return;
 
+    // Store previous state for rollback
+    const previousClients = [...clients];
+
     // Optimistic Update
     setClients(clients.map(c => c.id === updatedClient.id ? updatedClient : c));
 
-    // Cloud Save
-    await saveClient(user.id, updatedClient);
+    // Cloud Save with error handling
+    try {
+      await saveClient(user.id, updatedClient);
+    } catch (error) {
+      console.error('Failed to save client:', error);
+      // Rollback optimistic update
+      setClients(previousClients);
+
+      // Show error to user
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save changes';
+      alert(`Error saving data: ${errorMessage}\n\nPlease check the browser console for details and try again.`);
+    }
   };
 
   const handleDeleteClient = async (clientId: string) => {
