@@ -288,6 +288,90 @@ const parseExcel = async (file: File, logs: ParseLogEntry[]): Promise<string> =>
   }
 };
 
+const verifyExtractedGrants = async (
+  originalText: string,
+  extractedGrants: any[],
+  logs: ParseLogEntry[]
+): Promise<any[]> => {
+  logs.push(createLog('info', 'verification', 'Verifying extracted grant data'));
+
+  const verificationPrompt = `
+You are verifying equity grant data that was extracted from a document. Your job is to CHECK and CORRECT the extracted data.
+
+ORIGINAL DOCUMENT TEXT:
+${originalText}
+
+EXTRACTED GRANTS:
+${JSON.stringify(extractedGrants, null, 2)}
+
+VERIFICATION TASKS:
+1. For EACH grant, verify these critical fields are ACCURATE:
+   - grantDate: Is this the date the equity was AWARDED/GRANTED (not a vesting date)?
+   - shares: Is this the TOTAL shares for the grant (sum of all vesting tranches if applicable)?
+   - grantId: Is this correctly extracted?
+   - companyName and ticker: Are these present and correct?
+
+2. Check for COMMON MISTAKES:
+   - ❌ Grant date is actually a vest date (vest dates are typically 1-4 years AFTER grant date)
+   - ❌ Shares count is from one vesting tranche instead of the TOTAL
+   - ❌ Missing company name or ticker that IS present in the document
+   - ❌ Duplicate grants that should be one grant with multiple vesting dates
+   - ❌ Missed grants that are in the document
+
+3. If you find ANY errors, return the CORRECTED grants array.
+
+4. Count total unique grants in the original document and verify the count matches extracted grants.
+
+Return JSON with this structure:
+{
+  "verified": true,
+  "corrections": "Brief description of any corrections made, or 'No corrections needed'",
+  "grantCount": <number of unique grants found>,
+  "grants": [<corrected grants array>]
+}
+
+If the original extraction is perfect, return it unchanged with "corrections": "No corrections needed".
+`;
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const verificationCompletion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert verification assistant. Your job is to carefully check extracted equity grant data for accuracy. Be thorough and precise.`
+        },
+        { role: 'user', content: verificationPrompt }
+      ],
+      temperature: 0,
+      response_format: { type: 'json_object' }
+    });
+
+    const verificationText = verificationCompletion.choices[0].message.content || '{}';
+    const verificationResult = JSON.parse(verificationText);
+
+    logs.push(createLog('info', 'verification', 'Verification result received', {
+      corrections: verificationResult.corrections,
+      grantCount: verificationResult.grantCount,
+      verified: verificationResult.verified
+    }));
+
+    if (verificationResult.corrections && verificationResult.corrections !== 'No corrections needed') {
+      logs.push(createLog('warn', 'verification', `Corrections made: ${verificationResult.corrections}`));
+    }
+
+    return verificationResult.grants || extractedGrants;
+
+  } catch (error) {
+    logs.push(createLog('error', 'verification', 'Verification failed', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }));
+    return extractedGrants;
+  }
+};
+
 const extractGrantData = async (
   text: string,
   logs: ParseLogEntry[],
@@ -303,8 +387,14 @@ STEP 1: FIRST, carefully count how many DISTINCT grants are in this document. Lo
 - Different Award IDs, Grant IDs, or Plan Numbers
 - Different grant dates for the same equity type
 - Different companies or tickers
+COUNT CAREFULLY. Write down the count before proceeding.
 
 STEP 2: Extract ALL grants you counted. DO NOT skip any grants. If you counted 11 grants, you MUST return 11 grants.
+
+STEP 3: For EACH grant, VERIFY:
+- Grant Date: Double-check this is the AWARD/GRANT date, NOT a vesting date. Look for phrases like "Award Date", "Grant Date", "Date of Grant". Vesting dates are typically shown in tables LATER in the document.
+- Total Shares: Double-check you summed ALL vesting tranches if this is a single grant with multiple vest dates. Look at the ENTIRE vesting schedule.
+- Grant ID: Verify you captured the correct identifier.
 
 CRITICAL: ALWAYS look for and extract the company name and stock ticker symbol. These are often:
 - In the header/footer of the document
@@ -427,11 +517,16 @@ CRITICAL RULES:
 1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
 2. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
 3. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
+   - ✅ Correct: "Award Date: May 20, 2021" → grantDate: "2021-05-20"
+   - ❌ Incorrect: Using a vest date from a vesting schedule table as the grant date
 4. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
+   - ✅ Correct: Vesting table shows 88+22+22+... shares for Grant-123 → totalShares: 352 (sum of all)
+   - ❌ Incorrect: Using just the first row (88 shares) as the total
 5. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
 6. Date format: Always use YYYY-MM-DD format for dates.
 7. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
-8. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.`,
+8. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
+9. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
             },
             { role: 'user', content: prompt }
           ],
@@ -476,7 +571,7 @@ CRITICAL RULES:
     }));
 
     const parsedData = JSON.parse(responseText);
-    const grants = parsedData.grants || [];
+    let grants = parsedData.grants || [];
 
     logs.push(createLog('info', 'ai-extraction', 'Parsed AI response', {
       grantCount: grants.length,
@@ -486,6 +581,25 @@ CRITICAL RULES:
     if (grants.length === 0) {
       warnings.push('AI extraction found no grants in the document');
       logs.push(createLog('warn', 'ai-extraction', 'No grants found in document'));
+    }
+
+    // VERIFICATION PASS: Double-check the extracted data
+    if (grants.length > 0) {
+      logs.push(createLog('info', 'verification', 'Starting verification pass'));
+
+      try {
+        const verifiedGrants = await verifyExtractedGrants(text, grants, logs);
+        grants = verifiedGrants;
+
+        logs.push(createLog('info', 'verification', 'Verification complete', {
+          originalCount: parsedData.grants?.length || 0,
+          verifiedCount: grants.length
+        }));
+      } catch (verifyError) {
+        logs.push(createLog('warn', 'verification', 'Verification failed, using original extraction', {
+          error: verifyError instanceof Error ? verifyError.message : 'Unknown error'
+        }));
+      }
     }
 
     // Verification pass: Check if we might have missed grants
@@ -541,17 +655,45 @@ CRITICAL RULES:
         ticker: extracted.ticker,
       }));
 
-      // Validation warnings
+      // Enhanced validation warnings
       if (!extracted.grantDate) {
-        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No grant date found - please verify`);
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No grant date found - please verify manually`);
       }
 
       if (!extracted.totalShares || extracted.totalShares === 0) {
-        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No shares found - please verify`);
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No shares found - please verify manually`);
       }
 
-      if (extracted.grantDate && extracted.grantDate > new Date().toISOString().split('T')[0]) {
-        warnings.push(`Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Grant date is in the future (${extracted.grantDate}) - this may be a vesting date instead of the grant date`);
+      if (extracted.grantDate) {
+        const grantDate = new Date(extracted.grantDate);
+        const today = new Date();
+        const fiveYearsAgo = new Date();
+        fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+
+        if (extracted.grantDate > today.toISOString().split('T')[0]) {
+          warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Grant date is in the FUTURE (${extracted.grantDate}). This is likely a vesting date, not a grant date. Please correct this.`);
+        }
+
+        // Warn if grant is more than 10 years old (unusual but not impossible)
+        const tenYearsAgo = new Date();
+        tenYearsAgo.setFullYear(today.getFullYear() - 10);
+        if (grantDate < tenYearsAgo) {
+          warnings.push(`ℹ️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Grant date is more than 10 years old (${extracted.grantDate}). Verify this is correct.`);
+        }
+      }
+
+      // Validate share counts are reasonable
+      if (extracted.totalShares && extracted.totalShares > 1000000) {
+        warnings.push(`ℹ️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Very large share count (${extracted.totalShares.toLocaleString()}). Verify this is the correct total.`);
+      }
+
+      if (extracted.totalShares && extracted.totalShares < 1) {
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Unusually small share count (${extracted.totalShares}). Verify this is correct.`);
+      }
+
+      // Check for missing company info
+      if (!extracted.companyName && !extracted.ticker) {
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No company name or ticker found. Check the document header/footer for this information.`);
       }
 
       return extracted;
