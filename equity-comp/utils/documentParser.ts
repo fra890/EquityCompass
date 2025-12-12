@@ -310,6 +310,12 @@ VERIFICATION TASKS:
    - shares: Is this the TOTAL shares for the grant (sum of all vesting tranches if applicable)?
    - grantId: Is this correctly extracted?
    - companyName and ticker: Are these present and correct?
+   - grantType: Is this correctly identified as ISO, NSO, RSU, or ESPP?
+     * "Incentive Stock Option" = ISO (NOT NSO, NOT RSU)
+     * "Non-Qualified Stock Option" = NSO
+     * "Restricted Stock Unit" = RSU
+   - cliffMonths: Calculate months from grant date to FIRST vest date (commonly 12)
+   - vestingMonths: Calculate months from grant date to FINAL/LAST vest date (commonly 48)
 
 2. Check for COMMON MISTAKES:
    - ❌ Grant date is actually a vest date (vest dates are typically 1-4 years AFTER grant date)
@@ -317,6 +323,9 @@ VERIFICATION TASKS:
    - ❌ Missing company name or ticker that IS present in the document
    - ❌ Duplicate grants that should be one grant with multiple vesting dates
    - ❌ Missed grants that are in the document
+   - ❌ ISO misidentified as RSU or NSO (check for "Incentive" keyword)
+   - ❌ cliffMonths not calculated (should be months to first vest)
+   - ❌ vestingMonths calculated to first vest instead of last vest
 
 3. If you find ANY errors, return the CORRECTED grants array.
 
@@ -395,6 +404,15 @@ STEP 3: For EACH grant, VERIFY:
 - Grant Date: Double-check this is the AWARD/GRANT date, NOT a vesting date. Look for phrases like "Award Date", "Grant Date", "Date of Grant". Vesting dates are typically shown in tables LATER in the document.
 - Total Shares: Double-check you summed ALL vesting tranches if this is a single grant with multiple vest dates. Look at the ENTIRE vesting schedule.
 - Grant ID: Verify you captured the correct identifier.
+- Grant Type: CRITICAL - Look for keywords:
+  * ISO = "Incentive Stock Option", "ISO", "Incentive Option"
+  * NSO = "Non-Qualified Stock Option", "NSO", "NQSO", "Non-Statutory"
+  * RSU = "Restricted Stock Unit", "RSU"
+  * ESPP = "Employee Stock Purchase Plan", "ESPP"
+- Vesting Schedule Months: CALCULATE THE MONTHS CAREFULLY:
+  * cliffMonths = months from GRANT DATE to FIRST VEST DATE (commonly 12 months)
+  * vestingMonths = TOTAL months from GRANT DATE to FINAL VEST DATE (commonly 48 months)
+  * Count the months between dates precisely
 
 CRITICAL: ALWAYS look for and extract the company name and stock ticker symbol. These are often:
 - In the header/footer of the document
@@ -420,12 +438,17 @@ For each grant, extract these fields (if available):
 - companyName: CRITICAL - name of the company issuing the grant (look in headers, logos, legal text)
 - ticker: CRITICAL - stock ticker symbol (usually 1-5 capital letters, often in parentheses after company name)
 - grantId: External grant ID, award number, or plan ID (string, for tracking/deduplication)
-- grantType: "ISO", "NSO", "RSU", or "ESPP"
+- grantType: CRITICAL - Must be EXACTLY one of: "ISO", "NSO", "RSU", or "ESPP"
+  * Look for: "Incentive Stock Option" → "ISO"
+  * Look for: "Non-Qualified Stock Option" or "Non-Statutory" → "NSO"
+  * Look for: "Restricted Stock Unit" → "RSU"
+  * Look for: "Employee Stock Purchase Plan" → "ESPP"
+  * If document says "Stock Option" without specifying, look for "incentive" nearby → likely "ISO"
 - shares: TOTAL number of shares in the grant (sum of all vesting tranches, numeric value only)
-- strikePrice: strike/exercise price per share (numeric, for ISOs/NSOs)
+- strikePrice: strike/exercise price per share (numeric, for ISOs/NSOs only)
 - grantDate: the date the grant was AWARDED (NOT vest dates) in YYYY-MM-DD format
-- cliffMonths: cliff period in months (numeric value only)
-- vestingMonths: total vesting period in months (numeric value only)
+- cliffMonths: CALCULATE months between grantDate and first vest date (numeric, commonly 12)
+- vestingMonths: CALCULATE total months from grantDate to last vest date (numeric, commonly 48)
 
 For ESPP grants specifically, also extract:
 - esppDiscountPercent: discount percentage (typically 15)
@@ -435,16 +458,22 @@ For ESPP grants specifically, also extract:
 - esppFmvAtOfferingStart: FMV at start of offering period
 - esppFmvAtPurchase: FMV at time of purchase
 
-EXAMPLE 1 - Single Grant with Vesting Schedule:
+EXAMPLE 1 - RSU with Vesting Schedule:
 If document shows:
 "Acme Corporation (ACME)
 Award ID: RSU-12345
 Award Date: April 10, 2017
 Vesting Schedule:
-4/10/2018 - 53 shares
+4/10/2018 - 53 shares (first vest)
 7/10/2018 - 53 shares
 10/10/2018 - 53 shares
-1/10/2019 - 52 shares"
+1/10/2019 - 52 shares (last vest)"
+
+Calculate:
+- Total shares: 53+53+53+52 = 211
+- Grant date: April 10, 2017
+- First vest: April 10, 2018 = 12 months after grant
+- Last vest: January 10, 2019 = 21 months after grant
 
 Return:
 {
@@ -456,11 +485,38 @@ Return:
     "shares": 211,
     "grantDate": "2017-04-10",
     "cliffMonths": 12,
+    "vestingMonths": 21
+  }]
+}
+
+EXAMPLE 2 - ISO with Exercise Price:
+If document shows:
+"Incentive Stock Option Agreement
+Grant Date: January 15, 2020
+Option ID: ISO-789
+Exercise Price: $10.50 per share
+Total Options: 1,000
+Vesting: 25% on 1/15/2021, then quarterly over 3 years"
+
+Calculate:
+- Grant type: "Incentive Stock Option" → ISO
+- Cliff: 1/15/2021 is 12 months after 1/15/2020
+- Total vesting: 1 year cliff + 3 years quarterly = 48 months
+
+Return:
+{
+  "grants": [{
+    "grantId": "ISO-789",
+    "grantType": "ISO",
+    "shares": 1000,
+    "strikePrice": 10.50,
+    "grantDate": "2020-01-15",
+    "cliffMonths": 12,
     "vestingMonths": 48
   }]
 }
 
-EXAMPLE 2 - Multiple Separate Grants:
+EXAMPLE 3 - Multiple Separate Grants:
 If document shows:
 "Grant ID: RSU-001, Date: 2020-01-15, Shares: 100
 Grant ID: RSU-002, Date: 2020-06-15, Shares: 150
@@ -515,18 +571,39 @@ ${text}
 
 CRITICAL RULES:
 1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
+
 2. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
-3. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
+
+3. Grant Type Recognition - BE PRECISE:
+   - ✅ "Incentive Stock Option" or "ISO" → grantType: "ISO" (NOT "NSO"!)
+   - ✅ "Non-Qualified Stock Option" or "NSO" or "NQSO" → grantType: "NSO"
+   - ✅ "Restricted Stock Unit" or "RSU" → grantType: "RSU"
+   - ✅ "Employee Stock Purchase Plan" or "ESPP" → grantType: "ESPP"
+   - ❌ Do NOT confuse ISO with NSO - they are different!
+
+4. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
    - ✅ Correct: "Award Date: May 20, 2021" → grantDate: "2021-05-20"
    - ❌ Incorrect: Using a vest date from a vesting schedule table as the grant date
-4. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
+
+5. Months Calculation - CRITICAL:
+   - cliffMonths = months from grant date to FIRST vest date
+   - vestingMonths = months from grant date to FINAL/LAST vest date (NOT quarterly, TOTAL!)
+   - ✅ Correct: Grant 1/1/2020, first vest 1/1/2021, last vest 1/1/2024 → cliff:12, vesting:48
+   - ❌ Incorrect: Using 3 for vestingMonths when it should be total period
+
+6. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
    - ✅ Correct: Vesting table shows 88+22+22+... shares for Grant-123 → totalShares: 352 (sum of all)
    - ❌ Incorrect: Using just the first row (88 shares) as the total
-5. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
-6. Date format: Always use YYYY-MM-DD format for dates.
-7. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
-8. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
-9. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
+
+7. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
+
+8. Date format: Always use YYYY-MM-DD format for dates.
+
+9. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
+
+10. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
+
+11. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
             },
             { role: 'user', content: prompt }
           ],
@@ -694,6 +771,36 @@ CRITICAL RULES:
       // Check for missing company info
       if (!extracted.companyName && !extracted.ticker) {
         warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No company name or ticker found. Check the document header/footer for this information.`);
+      }
+
+      // Validate grant type
+      if (!extracted.type || !['ISO', 'NSO', 'RSU', 'ESPP'].includes(extracted.type)) {
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Invalid or missing grant type. Must be ISO, NSO, RSU, or ESPP.`);
+      }
+
+      // Validate months for options/RSUs
+      if (extracted.type && ['ISO', 'NSO', 'RSU'].includes(extracted.type)) {
+        if (!extracted.cliffMonths && !extracted.vestingMonths) {
+          warnings.push(`ℹ️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): No vesting schedule months found. This may need to be added manually.`);
+        }
+
+        if (extracted.cliffMonths && (extracted.cliffMonths < 0 || extracted.cliffMonths > 48)) {
+          warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Unusual cliff period (${extracted.cliffMonths} months). Common values are 12 or 0. Verify this is correct.`);
+        }
+
+        if (extracted.vestingMonths && (extracted.vestingMonths < 0 || extracted.vestingMonths > 120)) {
+          warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Unusual vesting period (${extracted.vestingMonths} months). Common values are 48 or 16. Verify this is correct.`);
+        }
+
+        // Check if vestingMonths is less than cliffMonths (impossible)
+        if (extracted.cliffMonths && extracted.vestingMonths && extracted.vestingMonths < extracted.cliffMonths) {
+          warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Vesting months (${extracted.vestingMonths}) is LESS than cliff months (${extracted.cliffMonths}). This is impossible - vesting months should be the TOTAL period, not quarterly.`);
+        }
+      }
+
+      // Validate strike price for options
+      if (extracted.type && ['ISO', 'NSO'].includes(extracted.type) && !extracted.strikePrice) {
+        warnings.push(`⚠️ Grant ${index + 1} (${extracted.externalGrantId || 'no ID'}): Stock option (${extracted.type}) is missing strike/exercise price. This is required for options.`);
       }
 
       return extracted;
