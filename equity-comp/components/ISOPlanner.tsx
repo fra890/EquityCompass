@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client, Grant, PlannedExercise } from '../types';
-import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, formatNumber, calculateAMTRoom, getEffectiveRates, generateVestingSchedule, getQuarterlyProjections } from '../utils/calculations';
+import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, formatNumber, calculateAMTRoom, getEffectiveRates, generateVestingSchedule, getQuarterlyProjections, calculateISOQualification } from '../utils/calculations';
 import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, PenLine, Calendar } from 'lucide-react';
 import { Button } from './Button';
 
@@ -130,6 +130,101 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
 
   return (
     <div className="space-y-6 animate-fade-in">
+        {/* All ISO Grants Table */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                    <Target size={20} />
+                    All ISO Grants
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Detailed breakdown of all ISO/Option grants</p>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Grant Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Company</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Grant ID</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Shares</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Available</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Unvested</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Strike Price</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Current Price</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Spread</th>
+                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100">
+                        {isoGrants.map((grant) => {
+                            const status = getGrantStatus(grant, client.plannedExercises || []);
+                            const spread = (grant.currentPrice - (grant.strikePrice || 0)) * status.available;
+                            const totalSpread = (grant.currentPrice - (grant.strikePrice || 0)) * grant.totalShares;
+                            const statusText = status.vestedTotal === status.total ? 'Fully Vested' :
+                                status.vestedTotal > 0 ? 'Partially Vested' : 'Not Vested';
+                            const today = new Date().toISOString().split('T')[0];
+                            const qualification = calculateISOQualification(grant.grantDate, today);
+
+                            return (
+                                <tr key={grant.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                                        {new Date(grant.grantDate).toLocaleDateString()}
+                                        <div className="text-[10px] text-slate-400 mt-0.5">
+                                            {qualification.isQualified ? `Qualified since ${new Date(qualification.qualifyingDate).toLocaleDateString()}` : `Qualifies ${new Date(qualification.qualifyingDate).toLocaleDateString()}`}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-900">{grant.companyName}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-600 font-mono">
+                                        {grant.externalGrantId || grant.id.slice(0, 8)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-mono text-slate-600">
+                                        {formatNumber(grant.totalShares)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-mono text-tidemark-blue font-medium">
+                                        {formatNumber(status.available)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-mono text-slate-400">
+                                        {formatNumber(status.unvested)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-mono text-slate-600">
+                                        {formatCurrency(grant.strikePrice || 0)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-mono text-slate-900 font-medium">
+                                        {formatCurrency(grant.currentPrice || 0)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-right font-bold text-emerald-700">
+                                        {formatCurrency(totalSpread)}
+                                        <div className="text-[10px] text-slate-500 font-normal mt-0.5">
+                                            Available: {formatCurrency(spread)}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                            statusText === 'Fully Vested' ? 'bg-emerald-50 text-emerald-700' :
+                                            statusText === 'Partially Vested' ? 'bg-blue-50 text-blue-700' :
+                                            'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {statusText}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button
+                                            onClick={() => setSelectedGrantId(grant.id)}
+                                            className="text-tidemark-blue hover:text-tidemark-navy transition-colors font-medium text-xs"
+                                        >
+                                            Plan Exercise
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
             
             {/* Top Bar with Detailed Share Counts */}
