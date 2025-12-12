@@ -328,7 +328,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
     const grantData = {
       client_id: client.id,
       type: grant.type,
-      ticker: grant.ticker,
+      ticker: grant.ticker || '',
       company_name: grant.companyName,
       current_price: grant.currentPrice,
       grant_price: grant.grantPrice,
@@ -357,7 +357,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
 
       if (error) {
         console.error('Error updating grant:', error, 'Grant data:', grantData);
-        throw error;
+        throw new Error(`Failed to update grant ${grant.id}: ${error.message}`);
       }
     } else {
       const { error } = await supabase
@@ -366,7 +366,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
 
       if (error) {
         console.error('Error inserting grant:', error, 'Grant data:', grantData);
-        throw error;
+        throw new Error(`Failed to insert grant: ${error.message}`);
       }
     }
   }

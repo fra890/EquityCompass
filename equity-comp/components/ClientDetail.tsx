@@ -519,15 +519,15 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       })
     );
 
-    onUpdateClient({ ...client, grants: [...client.grants, ...grantsWithPrices] });
-    setShowBulkUpload(false);
-
-    setTimeout(async () => {
-      for (const grant of grantsWithPrices) {
-        await fetchHistoricalPricesForGrant(grant);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }, 1000);
+    try {
+      await onUpdateClient({ ...client, grants: [...client.grants, ...grantsWithPrices] });
+      setShowBulkUpload(false);
+      console.log('Successfully saved grants to database');
+    } catch (error) {
+      console.error('Failed to save grants:', error);
+      alert('Failed to save grants. Please check the console for details.');
+      return;
+    }
   };
 
   const handleEditGrantClick = (grant: Grant) => {
