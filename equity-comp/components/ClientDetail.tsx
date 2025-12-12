@@ -6,7 +6,7 @@ import { ISOPlanner } from './ISOPlanner';
 import { RecordSaleModal } from './RecordSaleModal';
 import BulkDocumentUpload from './BulkDocumentUpload';
 import { Button } from './Button';
-import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw, Calendar } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { saveVestingPrice } from '../services/supabaseService';
@@ -915,7 +915,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       ) : activeTab === 'rsu' ? (
         <div className="space-y-8 animate-fade-in">
             {/* RSU Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -956,6 +956,21 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     </p>
                     <p className="text-sm text-slate-500 mt-1">
                         {formatNumber(client.grants.filter(g => g.type === 'RSU').reduce((sum, g) => sum + g.totalShares, 0))} total shares
+                    </p>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+                            <Calendar size={22} />
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">12-Month RSU Income</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-tidemark-navy">
+                        {formatCurrency(upcomingEvents.filter(e => e.grantType === 'RSU' || e.grantType === 'ESPP').reduce((sum, e) => sum + e.grossValue, 0))}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {formatNumber(upcomingEvents.filter(e => e.grantType === 'RSU' || e.grantType === 'ESPP').reduce((sum, e) => sum + e.shares, 0))} shares vesting
                     </p>
                 </div>
             </div>
@@ -2295,6 +2310,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         <thead className="text-xs text-slate-500 bg-slate-50 uppercase tracking-wider font-semibold border-b border-slate-100 print:bg-white print:text-black">
                             <tr>
                             <th className="px-4 py-4 print:py-2">Date</th>
+                            <th className="px-4 py-4 print:py-2">Grant ID</th>
                             <th className="px-4 py-4 print:py-2">Shares</th>
                             <th className="px-4 py-4 text-right print:py-2">Gross</th>
                             <th className="px-4 py-4 text-center print:py-2">Withholding</th>
@@ -2307,7 +2323,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         <tbody className="divide-y divide-slate-100 print:divide-slate-200">
                             {upcomingEvents.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                                 No upcoming vesting events found in the next 12 months.
                                 </td>
                             </tr>
@@ -2317,6 +2333,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                                 <td className="px-4 py-3 font-medium text-slate-900">
                                     {event.date}
                                     <div className="text-[10px] text-slate-400 uppercase print:text-black">{event.grantType}</div>
+                                </td>
+                                <td className="px-4 py-3 text-slate-600 print:text-black">
+                                    <div className="text-xs font-mono">{event.externalGrantId || event.grantId.slice(0, 8)}</div>
+                                    <div className="text-[10px] text-slate-400 print:text-black">{event.companyName}</div>
                                 </td>
                                 <td className="px-4 py-3 text-slate-600 print:text-black">{formatNumber(event.shares)}</td>
                                 <td className="px-4 py-3 text-right text-slate-600 font-medium print:text-black">{formatCurrency(event.grossValue)}</td>

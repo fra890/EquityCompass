@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client, Grant, PlannedExercise } from '../types';
-import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, formatNumber, calculateAMTRoom, getEffectiveRates } from '../utils/calculations';
-import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, PenLine } from 'lucide-react';
+import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, formatNumber, calculateAMTRoom, getEffectiveRates, generateVestingSchedule, getQuarterlyProjections } from '../utils/calculations';
+import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, PenLine, Calendar } from 'lucide-react';
 import { Button } from './Button';
 
 interface ISOPlannerProps {
@@ -27,6 +27,16 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
      if (!selectedGrant) return null;
      return getGrantStatus(selectedGrant, client.plannedExercises || []);
   }, [selectedGrant, client.plannedExercises]);
+
+  // Calculate 12-month projected ISO shares becoming exercisable
+  const projected12MonthISO = useMemo(() => {
+    return isoGrants.reduce((total, grant) => {
+      const schedule = generateVestingSchedule(grant, client);
+      const upcomingEvents = getQuarterlyProjections(schedule);
+      const isoEvents = upcomingEvents.filter(e => e.grantType === 'ISO');
+      return total + isoEvents.reduce((sum, e) => sum + e.shares, 0);
+    }, 0);
+  }, [isoGrants, client]);
 
   useEffect(() => {
     if (selectedGrant && grantStatus) {
@@ -138,6 +148,10 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                      <div className="flex items-center gap-2 px-3 py-1.5 bg-tidemark-blue/10 rounded-md border border-tidemark-blue/20 text-xs text-tidemark-navy" title="Shares vested and ready to exercise">
                         <Unlock size={14} className="text-tidemark-blue" />
                         Available: <span className="font-bold text-tidemark-blue text-sm">{formatNumber(grantStatus.available)}</span>
+                    </div>
+                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-md border border-amber-200 text-xs text-amber-700" title="ISO shares becoming exercisable in the next 12 months">
+                        <Calendar size={14} className="text-amber-600" />
+                        12-Mo Projection: <span className="font-bold text-amber-700">{formatNumber(projected12MonthISO)}</span>
                     </div>
                 </div>
             </div>

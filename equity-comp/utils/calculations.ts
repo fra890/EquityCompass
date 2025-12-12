@@ -444,7 +444,11 @@ const calculateEvent = (
   }
 
   return {
+    grantId: grant.id,
     grantType: grant.type,
+    ticker: grant.ticker,
+    companyName: grant.companyName,
+    externalGrantId: grant.externalGrantId,
     date: date.toISOString().split('T')[0],
     shares,
     priceAtVest: price,

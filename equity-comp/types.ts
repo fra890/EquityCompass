@@ -89,7 +89,11 @@ export interface Client {
 }
 
 export interface VestingEvent {
+  grantId: string;
   grantType: GrantType;
+  ticker: string;
+  companyName: string;
+  externalGrantId?: string;
   date: string;
   shares: number;
   priceAtVest: number;
