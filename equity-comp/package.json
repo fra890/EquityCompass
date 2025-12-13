@@ -11,6 +11,8 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.87.1",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.344.0",
     "openai": "^6.10.0",
     "pdfjs-dist": "^5.4.449",

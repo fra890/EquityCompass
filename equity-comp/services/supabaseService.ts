@@ -646,3 +646,114 @@ export const getVestingPricesForGrant = async (grantId: string): Promise<Vesting
 
   return (data || []).map(dbVestingPriceToVestingPrice);
 };
+
+export interface NotificationPreference {
+  id: string;
+  userId: string;
+  clientId: string;
+  vestingAlertsEnabled: boolean;
+  vestingAlertDays: number[];
+  isoExerciseAlertsEnabled: boolean;
+  isoExerciseAlertDays: number;
+  taxPlanningAlertsEnabled: boolean;
+  amtExposureAlertsEnabled: boolean;
+  amtThreshold: number;
+  email: string;
+}
+
+interface DbNotificationPreference {
+  id: string;
+  user_id: string;
+  client_id: string;
+  vesting_alerts_enabled: boolean;
+  vesting_alert_days: number[];
+  iso_exercise_alerts_enabled: boolean;
+  iso_exercise_alert_days: number;
+  tax_planning_alerts_enabled: boolean;
+  amt_exposure_alerts_enabled: boolean;
+  amt_threshold: number;
+  email: string;
+}
+
+function dbNotificationPrefToNotificationPref(dbPref: DbNotificationPreference): NotificationPreference {
+  return {
+    id: dbPref.id,
+    userId: dbPref.user_id,
+    clientId: dbPref.client_id,
+    vestingAlertsEnabled: dbPref.vesting_alerts_enabled,
+    vestingAlertDays: dbPref.vesting_alert_days,
+    isoExerciseAlertsEnabled: dbPref.iso_exercise_alerts_enabled,
+    isoExerciseAlertDays: dbPref.iso_exercise_alert_days,
+    taxPlanningAlertsEnabled: dbPref.tax_planning_alerts_enabled,
+    amtExposureAlertsEnabled: dbPref.amt_exposure_alerts_enabled,
+    amtThreshold: dbPref.amt_threshold,
+    email: dbPref.email,
+  };
+}
+
+export const getNotificationPreference = async (userId: string, clientId: string): Promise<NotificationPreference | null> => {
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('client_id', clientId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching notification preference:', error);
+    return null;
+  }
+
+  return data ? dbNotificationPrefToNotificationPref(data) : null;
+};
+
+export const saveNotificationPreference = async (
+  userId: string,
+  clientId: string,
+  pref: Partial<Omit<NotificationPreference, 'id' | 'userId' | 'clientId'>>
+): Promise<NotificationPreference> => {
+  const { data: existing } = await supabase
+    .from('notification_preferences')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('client_id', clientId)
+    .maybeSingle();
+
+  const prefData = {
+    user_id: userId,
+    client_id: clientId,
+    vesting_alerts_enabled: pref.vestingAlertsEnabled ?? true,
+    vesting_alert_days: pref.vestingAlertDays ?? [7, 30],
+    iso_exercise_alerts_enabled: pref.isoExerciseAlertsEnabled ?? true,
+    iso_exercise_alert_days: pref.isoExerciseAlertDays ?? 60,
+    tax_planning_alerts_enabled: pref.taxPlanningAlertsEnabled ?? true,
+    amt_exposure_alerts_enabled: pref.amtExposureAlertsEnabled ?? true,
+    amt_threshold: pref.amtThreshold ?? 100000,
+    email: pref.email || '',
+  };
+
+  let result;
+  if (existing) {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .update(prefData)
+      .eq('user_id', userId)
+      .eq('client_id', clientId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  } else {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .insert(prefData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    result = data;
+  }
+
+  return dbNotificationPrefToNotificationPref(result);
+};

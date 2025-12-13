@@ -5,11 +5,14 @@ import { AddClientModal } from './AddClientModal';
 import { ISOPlanner } from './ISOPlanner';
 import { RecordSaleModal } from './RecordSaleModal';
 import BulkDocumentUpload from './BulkDocumentUpload';
+import { NotificationSettings } from './NotificationSettings';
 import { Button } from './Button';
-import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, Printer, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw, Calendar, Bell } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { saveVestingPrice } from '../services/supabaseService';
+import { generateClientPDF } from '../utils/pdfGenerator';
+import { useAuth } from '../contexts/AuthContext';
 
 const fetchStockPrice = async (ticker: string, date?: string): Promise<number> => {
   if (!ticker) return 0;
@@ -113,6 +116,7 @@ const EditExerciseModal = ({
 
 
 export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUpdateClient }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [editingGrant, setEditingGrant] = useState<Grant | null>(null);
@@ -129,8 +133,14 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   // State for Bulk Document Upload
   const [showBulkUpload, setShowBulkUpload] = useState(false);
 
+  // State for Notification Settings
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+
   // State for Historical Price Fetching
   const [loadingHistoricalPrices, setLoadingHistoricalPrices] = useState<Record<string, boolean>>({});
+
+  // State for Batch Price Refresh
+  const [isRefreshingAllPrices, setIsRefreshingAllPrices] = useState(false);
 
   const fetchHistoricalPricesForGrant = async (grant: Grant) => {
     if (loadingHistoricalPrices[grant.id]) return;
@@ -178,6 +188,52 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       console.error('Error fetching historical prices:', err);
     } finally {
       setLoadingHistoricalPrices(prev => ({ ...prev, [grant.id]: false }));
+    }
+  };
+
+  const handleRefreshAllPrices = async () => {
+    if (isRefreshingAllPrices) return;
+
+    setIsRefreshingAllPrices(true);
+
+    try {
+      const uniqueTickers = Array.from(new Set(client.grants.map(g => g.ticker).filter(Boolean)));
+
+      const priceUpdates: Record<string, number> = {};
+
+      for (const ticker of uniqueTickers) {
+        try {
+          const price = await fetchStockPrice(ticker);
+          if (price > 0) {
+            priceUpdates[ticker] = price;
+          }
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (err) {
+          console.error(`Failed to fetch price for ${ticker}:`, err);
+        }
+      }
+
+      const updatedGrants = client.grants.map(grant => {
+        if (priceUpdates[grant.ticker]) {
+          return {
+            ...grant,
+            currentPrice: priceUpdates[grant.ticker],
+            lastUpdated: new Date().toISOString()
+          };
+        }
+        return grant;
+      });
+
+      onUpdateClient({
+        ...client,
+        grants: updatedGrants
+      });
+
+    } catch (err) {
+      console.error('Error refreshing all prices:', err);
+      alert('Failed to refresh prices. Please try again.');
+    } finally {
+      setIsRefreshingAllPrices(false);
     }
   };
 
@@ -695,10 +751,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
   };
 
   const printReport = () => {
-    alert("Preparing Report... Please select 'Save as PDF' as the destination in the print dialog that follows.");
-    setTimeout(() => {
-        window.print();
-    }, 500);
+    try {
+      generateClientPDF(client, upcomingEvents);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    }
   };
 
   const chartData = upcomingEvents.map(e => ({
@@ -744,8 +802,11 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           <div>
             <div className="flex items-center gap-3">
                <h1 className="text-3xl font-bold text-tidemark-navy tracking-tight">{client.name}</h1>
-               <button onClick={() => setShowEditClient(true)} className="text-slate-400 hover:text-tidemark-blue transition-colors">
+               <button onClick={() => setShowEditClient(true)} className="text-slate-400 hover:text-tidemark-blue transition-colors" title="Client Settings">
                  <Settings size={18} />
+               </button>
+               <button onClick={() => setShowNotificationSettings(true)} className="text-slate-400 hover:text-tidemark-blue transition-colors" title="Notification Settings">
+                 <Bell size={18} />
                </button>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mt-2">
@@ -762,9 +823,18 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           </div>
         </div>
         <div className="flex gap-2">
+             <Button
+               variant="secondary"
+               onClick={handleRefreshAllPrices}
+               disabled={isRefreshingAllPrices || client.grants.length === 0}
+               className="gap-2"
+             >
+                <RefreshCw size={18} className={isRefreshingAllPrices ? 'animate-spin' : ''} />
+                {isRefreshingAllPrices ? 'Updating...' : 'Refresh Prices'}
+             </Button>
              <Button variant="secondary" onClick={printReport} className="gap-2 hidden md:flex">
-                <Printer size={18} />
-                Print / Save PDF
+                <Download size={18} />
+                Export PDF Report
              </Button>
              <Button variant="secondary" onClick={downloadCSV} className="gap-2 hidden md:flex">
                 <Download size={18} />
@@ -2392,13 +2462,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
          </p>
       </div>
 
-      <AddClientModal 
-        isOpen={showEditClient} 
-        onClose={() => setShowEditClient(false)} 
+      <AddClientModal
+        isOpen={showEditClient}
+        onClose={() => setShowEditClient(false)}
         onSave={handleEditClientSave}
-        initialData={{ 
-            name: client.name, 
-            taxBracket: client.taxBracket, 
+        initialData={{
+            name: client.name,
+            taxBracket: client.taxBracket,
             state: client.state || 'CA',
             filingStatus: client.filingStatus,
             estimatedIncome: client.estimatedIncome,
@@ -2407,6 +2477,17 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
             customAmtSafeHarbor: client.customAmtSafeHarbor
         }}
       />
+
+      {user && (
+        <NotificationSettings
+          isOpen={showNotificationSettings}
+          onClose={() => setShowNotificationSettings(false)}
+          userId={user.id}
+          clientId={client.id}
+          clientName={client.name}
+          userEmail={user.email || ''}
+        />
+      )}
     </div>
   );
 };
