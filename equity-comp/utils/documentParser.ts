@@ -1,14 +1,11 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
-import OpenAI from 'openai';
 import { Grant, GrantType } from '../types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 3000;
@@ -295,80 +292,27 @@ const verifyExtractedGrants = async (
 ): Promise<any[]> => {
   logs.push(createLog('info', 'verification', 'Verifying extracted grant data'));
 
-  const verificationPrompt = `
-You are verifying equity grant data that was extracted from a document. Your job is to CHECK and CORRECT the extracted data.
-
-ORIGINAL DOCUMENT TEXT:
-${originalText}
-
-EXTRACTED GRANTS:
-${JSON.stringify(extractedGrants, null, 2)}
-
-VERIFICATION TASKS:
-1. For EACH grant, verify these critical fields are ACCURATE:
-   - grantDate: Is this the date the equity was AWARDED/GRANTED (not a vesting date)?
-   - shares: Is this the TOTAL shares for the grant (sum of all vesting tranches if applicable)?
-   - grantId: Is this correctly extracted?
-   - companyName and ticker: Are these present and correct?
-   - grantType: Is this correctly identified as ISO, NSO, RSU, or ESPP?
-     * "Incentive Stock Option" = ISO (NOT NSO, NOT RSU)
-     * "Non-Qualified Stock Option" = NSO
-     * "Restricted Stock Unit" = RSU
-   - cliffMonths: Calculate months from grant date to FIRST vest date (commonly 12)
-   - vestingMonths: Calculate months from grant date to FINAL/LAST vest date (commonly 48)
-
-2. MULTI-TAB DOCUMENTS:
-   If the document has multiple tabs/sections (Unvested, Exercisable, Sellable, Vested):
-   - ✅ Same Grant ID across tabs should be MERGED into ONE grant
-   - ✅ Prioritize "Unvested" tab for share counts
-   - ✅ Enrich with strike price, grant date from other tabs if missing
-   - ❌ Do NOT create duplicate grants for same Grant ID in different tabs
-
-3. Check for COMMON MISTAKES:
-   - ❌ Grant date is actually a vest date (vest dates are typically 1-4 years AFTER grant date)
-   - ❌ Shares count is from one vesting tranche instead of the TOTAL
-   - ❌ Missing company name or ticker that IS present in the document
-   - ❌ Duplicate grants that should be one grant with multiple vesting dates
-   - ❌ Duplicate grants from same Grant ID appearing in multiple tabs
-   - ❌ Missed grants that are in the document (especially in "Unvested" tab)
-   - ❌ ISO misidentified as RSU or NSO (check for "Incentive" keyword)
-   - ❌ cliffMonths not calculated (should be months to first vest)
-   - ❌ vestingMonths calculated to first vest instead of last vest
-   - ❌ Missing strike price for ISOs/NSOs that appears in other tabs
-
-4. If you find ANY errors, return the CORRECTED grants array.
-
-5. Count total unique grants in the original document and verify the count matches extracted grants.
-
-Return JSON with this structure:
-{
-  "verified": true,
-  "corrections": "Brief description of any corrections made, or 'No corrections needed'",
-  "grantCount": <number of unique grants found>,
-  "grants": [<corrected grants array>]
-}
-
-If the original extraction is perfect, return it unchanged with "corrections": "No corrections needed".
-`;
-
   try {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const verificationCompletion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert verification assistant. Your job is to carefully check extracted equity grant data for accuracy. Be thorough and precise.`
-        },
-        { role: 'user', content: verificationPrompt }
-      ],
-      temperature: 0,
-      response_format: { type: 'json_object' }
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/parse-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: originalText,
+        isVerification: true,
+        originalGrants: extractedGrants
+      })
     });
 
-    const verificationText = verificationCompletion.choices[0].message.content || '{}';
-    const verificationResult = JSON.parse(verificationText);
+    if (!response.ok) {
+      throw new Error(`Edge Function returned ${response.status}: ${await response.text()}`);
+    }
+
+    const verificationResult = await response.json();
 
     logs.push(createLog('info', 'verification', 'Verification result received', {
       corrections: verificationResult.corrections,
@@ -397,199 +341,6 @@ const extractGrantData = async (
 ): Promise<ExtractedGrantData[]> => {
   logs.push(createLog('info', 'ai-extraction', 'Starting AI grant extraction'));
 
-  const prompt = `
-You are an expert in analyzing equity compensation documents. This document may contain one or more equity grants.
-
-STEP 1: FIRST, carefully count how many DISTINCT grants are in this document. Look for:
-- Separate grant agreements or award letters
-- Different Award IDs, Grant IDs, or Plan Numbers
-- Different grant dates for the same equity type
-- Different companies or tickers
-
-MULTI-TAB DOCUMENTS: If this document has multiple tabs/sections (e.g., "Unvested", "Exercisable", "Sellable"):
-- The SAME Grant ID appearing across multiple tabs is the SAME grant - count it ONCE
-- Focus on "Unvested" tab for RSUs and future vesting
-- Use Grant IDs to correlate and merge data across tabs
-
-COUNT CAREFULLY. Write down the count before proceeding.
-
-STEP 2: Extract ALL grants you counted. DO NOT skip any grants. If you counted 11 grants, you MUST return 11 grants.
-
-STEP 3: For EACH grant, VERIFY:
-- Grant Date: Double-check this is the AWARD/GRANT date, NOT a vesting date. Look for phrases like "Award Date", "Grant Date", "Date of Grant". Vesting dates are typically shown in tables LATER in the document.
-- Total Shares: Double-check you summed ALL vesting tranches if this is a single grant with multiple vest dates. Look at the ENTIRE vesting schedule.
-- Grant ID: Verify you captured the correct identifier.
-- Grant Type: CRITICAL - Look for keywords:
-  * ISO = "Incentive Stock Option", "ISO", "Incentive Option"
-  * NSO = "Non-Qualified Stock Option", "NSO", "NQSO", "Non-Statutory"
-  * RSU = "Restricted Stock Unit", "RSU"
-  * ESPP = "Employee Stock Purchase Plan", "ESPP"
-- Vesting Schedule Months: CALCULATE THE MONTHS CAREFULLY:
-  * cliffMonths = months from GRANT DATE to FIRST VEST DATE (commonly 12 months)
-  * vestingMonths = TOTAL months from GRANT DATE to FINAL VEST DATE (commonly 48 months)
-  * Count the months between dates precisely
-
-CRITICAL: ALWAYS look for and extract the company name and stock ticker symbol. These are often:
-- In the header/footer of the document
-- In logos or letterheads
-- Near phrases like "stock option", "equity award", "grant agreement"
-- In company addresses or legal names
-Common examples: "Apple Inc." (ticker: AAPL), "Microsoft Corporation" (ticker: MSFT), "Alphabet Inc." (ticker: GOOGL)
-
-IMPORTANT DISTINCTIONS:
-- "grantDate" is the date the equity award was GRANTED/AWARDED to the employee (the original award date)
-- "vestDate" or vesting schedule dates are when shares VEST (become available) - these are NOT the grant date
-- If you see a table with multiple vesting dates and share amounts FOR THE SAME GRANT ID, these represent ONE grant with a vesting schedule
-- The TOTAL shares is the sum of all shares in the vesting schedule, NOT each row
-- If you see DIFFERENT Grant IDs or Award Numbers, these are SEPARATE grants even if they vest on similar dates
-
-For documents with vesting schedules (tables showing Date | Shares | Price):
-- Sum ALL the shares in the table to get "shares" (total shares granted) ONLY if they belong to the same grant ID
-- If each row has a different grant ID or award number, treat each row as a SEPARATE grant
-- The grant date is typically mentioned separately, NOT in the vesting table
-- If only a vesting schedule is shown without a separate grant date, look for the earliest date mentioned in context BEFORE the vesting table, or note grantDate as null
-
-For each grant, extract these fields (if available):
-- companyName: CRITICAL - name of the company issuing the grant (look in headers, logos, legal text)
-- ticker: CRITICAL - stock ticker symbol (usually 1-5 capital letters, often in parentheses after company name)
-- grantId: External grant ID, award number, or plan ID (string, for tracking/deduplication)
-- grantType: CRITICAL - Must be EXACTLY one of: "ISO", "NSO", "RSU", or "ESPP"
-  * Look for: "Incentive Stock Option" → "ISO"
-  * Look for: "Non-Qualified Stock Option" or "Non-Statutory" → "NSO"
-  * Look for: "Restricted Stock Unit" → "RSU"
-  * Look for: "Employee Stock Purchase Plan" → "ESPP"
-  * If document says "Stock Option" without specifying, look for "incentive" nearby → likely "ISO"
-- shares: TOTAL number of shares in the grant (sum of all vesting tranches, numeric value only)
-- strikePrice: strike/exercise price per share (numeric, for ISOs/NSOs only)
-- grantDate: the date the grant was AWARDED (NOT vest dates) in YYYY-MM-DD format
-- cliffMonths: CALCULATE months between grantDate and first vest date (numeric, commonly 12)
-- vestingMonths: CALCULATE total months from grantDate to last vest date (numeric, commonly 48)
-
-For ESPP grants specifically, also extract:
-- esppDiscountPercent: discount percentage (typically 15)
-- esppPurchasePrice: actual purchase price per share after discount
-- esppOfferingStartDate: start of offering period (YYYY-MM-DD)
-- esppOfferingEndDate: end of offering/purchase date (YYYY-MM-DD)
-- esppFmvAtOfferingStart: FMV at start of offering period
-- esppFmvAtPurchase: FMV at time of purchase
-
-EXAMPLE 1 - RSU with Vesting Schedule:
-If document shows:
-"Acme Corporation (ACME)
-Award ID: RSU-12345
-Award Date: April 10, 2017
-Vesting Schedule:
-4/10/2018 - 53 shares (first vest)
-7/10/2018 - 53 shares
-10/10/2018 - 53 shares
-1/10/2019 - 52 shares (last vest)"
-
-Calculate:
-- Total shares: 53+53+53+52 = 211
-- Grant date: April 10, 2017
-- First vest: April 10, 2018 = 12 months after grant
-- Last vest: January 10, 2019 = 21 months after grant
-
-Return:
-{
-  "grants": [{
-    "companyName": "Acme Corporation",
-    "ticker": "ACME",
-    "grantId": "RSU-12345",
-    "grantType": "RSU",
-    "shares": 211,
-    "grantDate": "2017-04-10",
-    "cliffMonths": 12,
-    "vestingMonths": 21
-  }]
-}
-
-EXAMPLE 2 - ISO with Exercise Price:
-If document shows:
-"Incentive Stock Option Agreement
-Grant Date: January 15, 2020
-Option ID: ISO-789
-Exercise Price: $10.50 per share
-Total Options: 1,000
-Vesting: 25% on 1/15/2021, then quarterly over 3 years"
-
-Calculate:
-- Grant type: "Incentive Stock Option" → ISO
-- Cliff: 1/15/2021 is 12 months after 1/15/2020
-- Total vesting: 1 year cliff + 3 years quarterly = 48 months
-
-Return:
-{
-  "grants": [{
-    "grantId": "ISO-789",
-    "grantType": "ISO",
-    "shares": 1000,
-    "strikePrice": 10.50,
-    "grantDate": "2020-01-15",
-    "cliffMonths": 12,
-    "vestingMonths": 48
-  }]
-}
-
-EXAMPLE 3 - Multiple Separate Grants:
-If document shows:
-"Grant ID: RSU-001, Date: 2020-01-15, Shares: 100
-Grant ID: RSU-002, Date: 2020-06-15, Shares: 150
-Grant ID: RSU-003, Date: 2021-01-15, Shares: 200"
-
-Return:
-{
-  "grants": [
-    {"grantId": "RSU-001", "grantType": "RSU", "shares": 100, "grantDate": "2020-01-15"},
-    {"grantId": "RSU-002", "grantType": "RSU", "shares": 150, "grantDate": "2020-06-15"},
-    {"grantId": "RSU-003", "grantType": "RSU", "shares": 200, "grantDate": "2021-01-15"}
-  ]
-}
-
-EXAMPLE 4 - Multi-Tab Document (MERGE by Grant ID):
-If document has tabs like:
-
-TAB: "Unvested"
-Grant ID: ISO-456, Shares: 750
-
-TAB: "Exercisable"
-Grant ID: ISO-456, Exercise Price: $15.00, Grant Date: 2022-03-01
-
-TAB: "Unvested"
-Grant ID: RSU-789, Shares: 200, Grant Date: 2023-01-15
-
-MERGE Grant ISO-456 data from both tabs into ONE grant. Count = 2 grants total.
-
-Return:
-{
-  "grants": [
-    {
-      "grantId": "ISO-456",
-      "grantType": "ISO",
-      "shares": 750,
-      "strikePrice": 15.00,
-      "grantDate": "2022-03-01"
-    },
-    {
-      "grantId": "RSU-789",
-      "grantType": "RSU",
-      "shares": 200,
-      "grantDate": "2023-01-15"
-    }
-  ]
-}
-
-Return a JSON object with this structure:
-{
-  "grants": [...]
-}
-
-If any field is not found, omit it or set it to null. If only one grant is found, return an array with one item.
-
-Document text:
-${text}
-`;
-
   try {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
@@ -602,72 +353,37 @@ ${text}
 
     lastRequestTime = Date.now();
 
-    let completion;
+    let parsedData;
     let lastError;
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logs.push(createLog('info', 'ai-extraction', `Attempt ${attempt}/${maxRetries} to call OpenAI API`));
+        logs.push(createLog('info', 'ai-extraction', `Attempt ${attempt}/${maxRetries} to call Edge Function`));
 
-        completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert in analyzing equity compensation documents. Return only valid JSON with a grants array.
-
-CRITICAL RULES:
-1. COMPLETENESS IS PARAMOUNT: Extract EVERY SINGLE grant in the document. Count them first, then extract all of them. Missing grants is unacceptable.
-
-2. MULTI-TAB/MULTI-SECTION DOCUMENTS - CRITICAL:
-   If the document has multiple tabs or sections (e.g., "Unvested", "Exercisable", "Sellable", "Vested"):
-   - Focus PRIMARY attention on the "Unvested" tab/section - this is where RSUs and future vesting is shown
-   - Use Grant ID/Grant Number/Award ID to CORRELATE the same grant across different tabs
-   - MERGE information from multiple tabs for the same Grant ID into ONE grant entry
-   - Example: If "Unvested" shows Grant-123 with shares but no strike price, and "Exercisable" shows Grant-123 with strike price $10, COMBINE them into ONE grant with both fields
-   - Do NOT create duplicate grants - same Grant ID = same grant, just merge the data
-   - If Grant ID appears in multiple tabs, take the MOST COMPLETE information from all tabs
-   - Prioritize unvested share counts but enrich with additional details (strike price, grant date) from other tabs
-
-3. Company Name & Ticker: ALWAYS extract the company name and ticker symbol. Look in headers, footers, logos, letterheads, and throughout the document. This is MANDATORY.
-
-4. Grant Type Recognition - BE PRECISE:
-   - ✅ "Incentive Stock Option" or "ISO" → grantType: "ISO" (NOT "NSO"!)
-   - ✅ "Non-Qualified Stock Option" or "NSO" or "NQSO" → grantType: "NSO"
-   - ✅ "Restricted Stock Unit" or "RSU" → grantType: "RSU"
-   - ✅ "Employee Stock Purchase Plan" or "ESPP" → grantType: "ESPP"
-   - ❌ Do NOT confuse ISO with NSO - they are different!
-
-5. Grant Date vs Vest Date: The grantDate is when the award was GIVEN, NOT when shares vest. Vesting dates are typically 1-4 years AFTER the grant date.
-   - ✅ Correct: "Award Date: May 20, 2021" → grantDate: "2021-05-20"
-   - ❌ Incorrect: Using a vest date from a vesting schedule table as the grant date
-
-6. Months Calculation - CRITICAL:
-   - cliffMonths = months from grant date to FIRST vest date
-   - vestingMonths = months from grant date to FINAL/LAST vest date (NOT quarterly, TOTAL!)
-   - ✅ Correct: Grant 1/1/2020, first vest 1/1/2021, last vest 1/1/2024 → cliff:12, vesting:48
-   - ❌ Incorrect: Using 3 for vestingMonths when it should be total period
-
-7. Total Shares: If you see a vesting schedule table FOR THE SAME GRANT ID, SUM all the shares to get the total. Do NOT return each row as a separate grant UNLESS each row has a different Grant ID.
-   - ✅ Correct: Vesting table shows 88+22+22+... shares for Grant-123 → totalShares: 352 (sum of all)
-   - ❌ Incorrect: Using just the first row (88 shares) as the total
-
-8. One grant per award ID: Multiple vesting dates for the same award ID = ONE grant with multiple vesting tranches. Different award IDs = different grants.
-
-9. Date format: Always use YYYY-MM-DD format for dates.
-
-10. Be thorough in extracting grant IDs, award numbers, and ESPP-specific fields.
-
-11. ACCURACY: Extract exact numbers and dates as they appear. Do not approximate or round.
-
-12. VERIFICATION: After extraction, mentally verify each field makes sense before returning.`,
-            },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0,
-          response_format: { type: 'json_object' }
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/parse-document`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: text,
+            isVerification: false
+          })
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Edge Function returned ${response.status}: ${errorText}`);
+        }
+
+        parsedData = await response.json();
+
+        logs.push(createLog('info', 'ai-extraction', 'AI response received', {
+          responseLength: JSON.stringify(parsedData).length,
+          rawResponse: JSON.stringify(parsedData), // Include full AI response for debugging
+        }));
 
         // Success - break out of retry loop
         break;
@@ -693,19 +409,9 @@ CRITICAL RULES:
       }
     }
 
-    if (!completion) {
-      throw lastError || new Error('Failed to get completion from OpenAI after retries');
+    if (!parsedData) {
+      throw lastError || new Error('Failed to get response from Edge Function after retries');
     }
-
-    const responseText = completion.choices[0].message.content || '{"grants":[]}';
-
-    logs.push(createLog('info', 'ai-extraction', 'AI response received', {
-      responseLength: responseText.length,
-      tokensUsed: completion.usage?.total_tokens,
-      rawResponse: responseText, // Include full AI response for debugging
-    }));
-
-    const parsedData = JSON.parse(responseText);
     let grants = parsedData.grants || [];
 
     logs.push(createLog('info', 'ai-extraction', 'Parsed AI response', {
@@ -865,7 +571,7 @@ CRITICAL RULES:
     });
 
   } catch (error: any) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown AI error';
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     logs.push(createLog('error', 'ai-extraction', 'AI extraction failed', {
       error: errorMsg,
       status: error?.status,
@@ -874,13 +580,13 @@ CRITICAL RULES:
 
     // Provide specific error messages based on error type
     if (error?.status === 429 || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
-      throw new Error('Too many requests. Please wait 10-15 seconds before trying again. (OpenAI enforces rate limits to prevent abuse)');
+      throw new Error('Too many requests. Please wait 10-15 seconds before trying again.');
     } else if (error?.status === 401 || errorMsg.includes('401') || errorMsg.includes('authentication')) {
-      throw new Error('OpenAI API authentication failed. Please check your API key in the .env file.');
+      throw new Error('Authentication failed. Please ensure you are logged in.');
     } else if (error?.status === 403 || errorMsg.includes('403')) {
-      throw new Error('OpenAI API access denied. Your API key may not have access to GPT-4o. Check your API plan at platform.openai.com/account/billing');
+      throw new Error('Access denied. Please check your permissions.');
     } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-      throw new Error('Network error while contacting OpenAI API. Please check your internet connection and try again.');
+      throw new Error('Network error. Please check your internet connection and try again.');
     } else {
       throw new Error(`Failed to extract grant data: ${errorMsg}`);
     }
