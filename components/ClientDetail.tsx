@@ -330,13 +330,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
               grantType: grant.type,
               totalEvents: events.length,
               pastEvents: pastEvents.length,
-              hasCustomHeldShares: grant.customHeldShares !== undefined,
+              hasCustomHeldShares: grant.customHeldShares != null,
               customHeldShares: grant.customHeldShares,
               samplePastEvent: pastEvents[0] ? { date: pastEvents[0].date, shares: pastEvents[0].shares, netShares: pastEvents[0].netShares, isPast: pastEvents[0].isPast } : null,
               simulateSellAll
             });
 
-            if (grant.customHeldShares !== undefined) {
+            if (grant.customHeldShares != null) {
                 // Manual Override
                 sharesHeld = grant.customHeldShares;
                 currentVal = sharesHeld * grant.currentPrice;
