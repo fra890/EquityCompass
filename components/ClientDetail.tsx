@@ -326,10 +326,14 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
             console.log(`📊 Grant "${grant.companyName}" (${grant.ticker}):`, {
               grantDate: grant.grantDate,
               totalShares: grant.totalShares,
+              currentPrice: grant.currentPrice,
+              grantType: grant.type,
               totalEvents: events.length,
               pastEvents: pastEvents.length,
               hasCustomHeldShares: grant.customHeldShares !== undefined,
-              customHeldShares: grant.customHeldShares
+              customHeldShares: grant.customHeldShares,
+              samplePastEvent: pastEvents[0] ? { date: pastEvents[0].date, shares: pastEvents[0].shares, netShares: pastEvents[0].netShares, isPast: pastEvents[0].isPast } : null,
+              simulateSellAll
             });
 
             if (grant.customHeldShares !== undefined) {
@@ -494,7 +498,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
     const amtiSummary: YearAMTI[] = (Object.values(amtiByYear) as YearAMTI[]).sort((a, b) => b.year - a.year);
 
     return { rsu: rsuHoldings, iso: isoHoldings, lots: allLots, amtiByYear: amtiSummary };
-  }, [allEvents, client.grants, client.plannedExercises, simulateSellAll]);
+  }, [client, simulateSellAll]);
 
 
   // Aggregate stats
