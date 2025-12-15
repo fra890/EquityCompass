@@ -181,7 +181,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       }
 
       const updatedGrant = { ...grant, vestingPrices: newVestingPrices };
-      const updatedGrants = client.grants.map(g => g.id === grant.id ? updatedGrant : g);
+      const grantExists = client.grants.some(g => g.id === grant.id);
+      const updatedGrants = grantExists
+        ? client.grants.map(g => g.id === grant.id ? updatedGrant : g)
+        : [...client.grants, updatedGrant];
       onUpdateClient({ ...client, grants: updatedGrants });
 
     } catch (err) {
