@@ -527,7 +527,13 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
     let savedGrant: Grant;
 
     if (editingGrant) {
-      savedGrant = { ...finalGrantData, id: editingGrant.id, lastUpdated: new Date().toISOString() };
+      savedGrant = {
+        ...finalGrantData,
+        id: editingGrant.id,
+        lastUpdated: new Date().toISOString(),
+        sales: editingGrant.sales || [],
+        vestingPrices: editingGrant.vestingPrices || []
+      };
       const updatedGrants = client.grants.map(g =>
         g.id === editingGrant.id ? savedGrant : g
       );
@@ -537,7 +543,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       savedGrant = {
         ...finalGrantData,
         id: crypto.randomUUID(),
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        sales: [],
+        vestingPrices: []
       };
       onUpdateClient({ ...client, grants: [...client.grants, savedGrant] });
     }
@@ -570,7 +578,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           currentPrice: grantData.ticker ? (currentPriceMap[grantData.ticker] || 0) : 0,
           grantPrice: historicalPrice || undefined,
           id: crypto.randomUUID(),
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toISOString(),
+          sales: [],
+          vestingPrices: []
         } as Grant;
       })
     );
