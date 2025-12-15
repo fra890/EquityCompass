@@ -104,9 +104,13 @@ const App: React.FC = () => {
 
     // Cloud Save with error handling
     try {
+      console.log('💾 Saving client:', updatedClient.name, 'with', updatedClient.grants.length, 'grants');
       await saveClient(user.id, updatedClient);
+      console.log('✅ Client saved successfully');
     } catch (error) {
-      console.error('Failed to save client:', error);
+      console.error('❌ Failed to save client:', error);
+      console.error('Client data:', JSON.stringify(updatedClient, null, 2));
+
       // Rollback optimistic update
       setClients(previousClients);
 

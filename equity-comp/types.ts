@@ -51,8 +51,8 @@ export interface Grant {
   esppFmvAtPurchase?: number;
 
   planNotes?: string;
-  sales?: StockSale[];
-  vestingPrices?: VestingPrice[];
+  sales: StockSale[];
+  vestingPrices: VestingPrice[];
 
   lastUpdated: string;
 }

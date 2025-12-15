@@ -126,10 +126,29 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate required fields
+    if (!companyName?.trim()) {
+      alert('Company name is required');
+      return;
+    }
+    if (!currentPrice || isNaN(parseFloat(currentPrice)) || parseFloat(currentPrice) <= 0) {
+      alert('Valid current price is required');
+      return;
+    }
+    if (!totalShares || isNaN(parseFloat(totalShares)) || parseFloat(totalShares) <= 0) {
+      alert('Valid total shares is required');
+      return;
+    }
+    if (!grantDate) {
+      alert('Grant date is required');
+      return;
+    }
+
     onSave({
       type,
       ticker: ticker.toUpperCase(),
-      companyName,
+      companyName: companyName.trim(),
       currentPrice: parseFloat(currentPrice),
       grantPrice: grantPrice ? parseFloat(grantPrice) : undefined,
       strikePrice: (type === 'ISO' || type === 'NSO') && strikePrice !== '' ? parseFloat(strikePrice) : undefined,

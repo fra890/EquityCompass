@@ -152,8 +152,8 @@ function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = [], vestingPrices
     esppFmvAtOfferingStart: dbGrant.espp_fmv_at_offering_start,
     esppFmvAtPurchase: dbGrant.espp_fmv_at_purchase,
     planNotes: dbGrant.plan_notes,
-    sales: sales,
-    vestingPrices: vestingPrices,
+    sales: sales || [],
+    vestingPrices: vestingPrices || [],
     lastUpdated: dbGrant.updated_at,
   };
 }

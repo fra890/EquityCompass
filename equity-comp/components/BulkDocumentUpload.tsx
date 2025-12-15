@@ -177,6 +177,8 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
             esppOfferingEndDate: grant.esppOfferingEndDate,
             esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart,
             esppFmvAtPurchase: grant.esppFmvAtPurchase,
+            sales: [],
+            vestingPrices: [],
           };
         }) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
 
