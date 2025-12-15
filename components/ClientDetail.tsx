@@ -399,74 +399,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                 }
 
             } else {
-                // Auto Calculation (Sell-to-Cover) with Sales Deduction
-                const now = new Date();
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(now.getFullYear() - 1);
-
-                // Build lots from vesting events
-                interface TempLot {
-                    vestDate: string;
-                    shares: number;
-                    priceAtVest: number;
-                }
-                const tempLots: TempLot[] = pastEvents.map(e => ({
-                    vestDate: e.date,
-                    shares: e.netShares,
-                    priceAtVest: e.priceAtVest
-                }));
-
-                // Calculate total shares sold from recorded sales (FIFO deduction)
-                const totalSharesSold = (grant.sales || []).reduce((sum, sale) => sum + sale.sharesSold, 0);
-                let remainingToDeduct = totalSharesSold;
-
-                // Deduct sold shares from oldest lots first (FIFO)
-                for (const lot of tempLots) {
-                    if (remainingToDeduct <= 0) break;
-                    const deduction = Math.min(lot.shares, remainingToDeduct);
-                    lot.shares -= deduction;
-                    remainingToDeduct -= deduction;
-                }
-
-                // Now calculate holdings from remaining lots
-                tempLots.forEach(lot => {
-                    if (lot.shares <= 0) return;
-
-                    const isLT = new Date(lot.vestDate) < oneYearAgo;
-                    sharesHeld += lot.shares;
-
-                    if (isLT) {
-                        longTerm += lot.shares;
-                        longTermValue += lot.shares * grant.currentPrice;
-                    } else {
-                        shortTerm += lot.shares;
-                        shortTermValue += lot.shares * grant.currentPrice;
-                    }
-
-                    // Create lot (cost basis at vest = FMV at vest)
-                    const lotCostBasis = lot.shares * lot.priceAtVest;
-                    const lotCurrentValue = lot.shares * grant.currentPrice;
-                    const lotGain = lotCurrentValue - lotCostBasis;
-
-                    allLots.push({
-                        vestDate: lot.vestDate,
-                        shares: lot.shares,
-                        costBasis: lotCostBasis,
-                        currentValue: lotCurrentValue,
-                        gain: lotGain,
-                        isLongTerm: isLT,
-                        grantTicker: grant.ticker
-                    });
-
-                    if (isLT) {
-                        longTermGain += lotGain;
-                    } else {
-                        shortTermGain += lotGain;
-                    }
-                    totalGain += lotGain;
-                });
-                currentVal = sharesHeld * grant.currentPrice;
-                hasGainData = true;
+                // Default: Assume all vested shares were sold (diversification)
+                // Vested holdings = $0 unless customHeldShares is explicitly set
+                sharesHeld = 0;
+                currentVal = 0;
             }
 
             return {
