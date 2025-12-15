@@ -399,31 +399,58 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                 }
 
             } else {
-                // Auto Calculation (Sell-to-Cover)
+                // Auto Calculation (Sell-to-Cover) with Sales Deduction
                 const now = new Date();
                 const oneYearAgo = new Date();
                 oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-                pastEvents.forEach(e => {
-                    const isLT = new Date(e.date) < oneYearAgo;
-                    sharesHeld += e.netShares;
+                // Build lots from vesting events
+                interface TempLot {
+                    vestDate: string;
+                    shares: number;
+                    priceAtVest: number;
+                }
+                const tempLots: TempLot[] = pastEvents.map(e => ({
+                    vestDate: e.date,
+                    shares: e.netShares,
+                    priceAtVest: e.priceAtVest
+                }));
+
+                // Calculate total shares sold from recorded sales (FIFO deduction)
+                const totalSharesSold = (grant.sales || []).reduce((sum, sale) => sum + sale.sharesSold, 0);
+                let remainingToDeduct = totalSharesSold;
+
+                // Deduct sold shares from oldest lots first (FIFO)
+                for (const lot of tempLots) {
+                    if (remainingToDeduct <= 0) break;
+                    const deduction = Math.min(lot.shares, remainingToDeduct);
+                    lot.shares -= deduction;
+                    remainingToDeduct -= deduction;
+                }
+
+                // Now calculate holdings from remaining lots
+                tempLots.forEach(lot => {
+                    if (lot.shares <= 0) return;
+
+                    const isLT = new Date(lot.vestDate) < oneYearAgo;
+                    sharesHeld += lot.shares;
 
                     if (isLT) {
-                        longTerm += e.netShares;
-                        longTermValue += e.netShares * grant.currentPrice;
+                        longTerm += lot.shares;
+                        longTermValue += lot.shares * grant.currentPrice;
                     } else {
-                        shortTerm += e.netShares;
-                        shortTermValue += e.netShares * grant.currentPrice;
+                        shortTerm += lot.shares;
+                        shortTermValue += lot.shares * grant.currentPrice;
                     }
 
-                    // Create lot (cost basis at vest = FMV at vest, which is e.priceAtVest)
-                    const lotCostBasis = e.netShares * e.priceAtVest;
-                    const lotCurrentValue = e.netShares * grant.currentPrice;
+                    // Create lot (cost basis at vest = FMV at vest)
+                    const lotCostBasis = lot.shares * lot.priceAtVest;
+                    const lotCurrentValue = lot.shares * grant.currentPrice;
                     const lotGain = lotCurrentValue - lotCostBasis;
 
                     allLots.push({
-                        vestDate: e.date,
-                        shares: e.netShares,
+                        vestDate: lot.vestDate,
+                        shares: lot.shares,
                         costBasis: lotCostBasis,
                         currentValue: lotCurrentValue,
                         gain: lotGain,
@@ -431,7 +458,6 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         grantTicker: grant.ticker
                     });
 
-                    // Accumulate gains by term
                     if (isLT) {
                         longTermGain += lotGain;
                     } else {
@@ -440,7 +466,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     totalGain += lotGain;
                 });
                 currentVal = sharesHeld * grant.currentPrice;
-                hasGainData = true; // We have price data from vesting events
+                hasGainData = true;
             }
 
             return {
