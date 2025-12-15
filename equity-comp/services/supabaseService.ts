@@ -325,29 +325,53 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
   }
 
   for (const grant of client.grants) {
+    // Validate required fields
+    if (!grant.companyName || grant.companyName.trim() === '') {
+      throw new Error(`Grant ${grant.id} is missing company_name`);
+    }
+    if (grant.currentPrice === null || grant.currentPrice === undefined || isNaN(grant.currentPrice)) {
+      throw new Error(`Grant ${grant.id} has invalid current_price: ${grant.currentPrice}`);
+    }
+    if (grant.totalShares === null || grant.totalShares === undefined || isNaN(grant.totalShares)) {
+      throw new Error(`Grant ${grant.id} has invalid total_shares: ${grant.totalShares}`);
+    }
+    if (!grant.grantDate) {
+      throw new Error(`Grant ${grant.id} is missing grant_date`);
+    }
+    if (!grant.vestingSchedule) {
+      throw new Error(`Grant ${grant.id} is missing vesting_schedule`);
+    }
+
     const grantData = {
       client_id: client.id,
       type: grant.type,
       ticker: grant.ticker || '',
-      company_name: grant.companyName,
+      company_name: grant.companyName.trim(),
       current_price: grant.currentPrice,
-      grant_price: grant.grantPrice,
-      strike_price: grant.strikePrice,
+      grant_price: grant.grantPrice || null,
+      strike_price: grant.strikePrice || null,
       grant_date: grant.grantDate,
       total_shares: grant.totalShares,
       vesting_schedule: grant.vestingSchedule,
-      withholding_rate: grant.withholdingRate,
-      custom_held_shares: grant.customHeldShares,
-      average_cost_basis: grant.averageCostBasis,
-      external_grant_id: grant.externalGrantId,
-      espp_discount_percent: grant.esppDiscountPercent,
-      espp_purchase_price: grant.esppPurchasePrice,
-      espp_offering_start_date: grant.esppOfferingStartDate,
-      espp_offering_end_date: grant.esppOfferingEndDate,
-      espp_fmv_at_offering_start: grant.esppFmvAtOfferingStart,
-      espp_fmv_at_purchase: grant.esppFmvAtPurchase,
-      plan_notes: grant.planNotes,
+      withholding_rate: grant.withholdingRate || null,
+      custom_held_shares: grant.customHeldShares || null,
+      average_cost_basis: grant.averageCostBasis || null,
+      external_grant_id: grant.externalGrantId || null,
+      espp_discount_percent: grant.esppDiscountPercent || null,
+      espp_purchase_price: grant.esppPurchasePrice || null,
+      espp_offering_start_date: grant.esppOfferingStartDate || null,
+      espp_offering_end_date: grant.esppOfferingEndDate || null,
+      espp_fmv_at_offering_start: grant.esppFmvAtOfferingStart || null,
+      espp_fmv_at_purchase: grant.esppFmvAtPurchase || null,
+      plan_notes: grant.planNotes || null,
     };
+
+    console.log(`💾 Saving grant ${grant.id}:`, {
+      companyName: grantData.company_name,
+      currentPrice: grantData.current_price,
+      totalShares: grantData.total_shares,
+      isUpdate: existingGrantIds.has(grant.id)
+    });
 
     if (existingGrantIds.has(grant.id)) {
       const { error } = await supabase
@@ -356,18 +380,20 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
         .eq('id', grant.id);
 
       if (error) {
-        console.error('Error updating grant:', error, 'Grant data:', grantData);
+        console.error('❌ Error updating grant:', error, 'Grant data:', grantData);
         throw new Error(`Failed to update grant ${grant.id}: ${error.message}`);
       }
+      console.log(`✅ Updated grant ${grant.id}`);
     } else {
       const { error } = await supabase
         .from('grants')
         .insert({ ...grantData, id: grant.id });
 
       if (error) {
-        console.error('Error inserting grant:', error, 'Grant data:', grantData);
+        console.error('❌ Error inserting grant:', error, 'Grant data:', grantData);
         throw new Error(`Failed to insert grant: ${error.message}`);
       }
+      console.log(`✅ Inserted grant ${grant.id}`);
     }
   }
 

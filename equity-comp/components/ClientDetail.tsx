@@ -288,6 +288,8 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   // --- Holdings Calculation (New Feature with ST/LT Split) ---
   const holdings = useMemo(() => {
+    console.log('🔢 Recalculating holdings for client:', client.name);
+
     interface TaxLot {
       vestDate: string;
       shares: number;
@@ -317,6 +319,15 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
             // Generate past events for this grant to determine aging
             const events = generateVestingSchedule(grant, client, simulateSellAll);
             const pastEvents = events.filter(e => e.isPast).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            console.log(`📊 Grant "${grant.companyName}" (${grant.ticker}):`, {
+              grantDate: grant.grantDate,
+              totalShares: grant.totalShares,
+              totalEvents: events.length,
+              pastEvents: pastEvents.length,
+              hasCustomHeldShares: grant.customHeldShares !== undefined,
+              customHeldShares: grant.customHeldShares
+            });
 
             if (grant.customHeldShares !== undefined) {
                 // Manual Override
@@ -507,7 +518,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
 
   // --- Handlers ---
 
-  const handleSaveGrant = async (grantData: Omit<Grant, 'id' | 'lastUpdated'>) => {
+  const handleSaveGrant = async (grantData: Omit<Grant, 'id' | 'lastUpdated' | 'sales' | 'vestingPrices'>) => {
+    console.log('🔵 handleSaveGrant called with:', grantData);
+
     let finalGrantData = { ...grantData };
 
     if (grantData.ticker) {
@@ -534,6 +547,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
         sales: editingGrant.sales || [],
         vestingPrices: editingGrant.vestingPrices || []
       };
+      console.log('✏️ Updating existing grant:', savedGrant.id);
       const updatedGrants = client.grants.map(g =>
         g.id === editingGrant.id ? savedGrant : g
       );
@@ -547,6 +561,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
         sales: [],
         vestingPrices: []
       };
+      console.log('➕ Creating new grant:', savedGrant.id, savedGrant);
       onUpdateClient({ ...client, grants: [...client.grants, savedGrant] });
     }
     setShowGrantForm(false);
@@ -556,7 +571,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
     }, 500);
   };
 
-  const handleBulkGrantsExtracted = async (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => {
+  const handleBulkGrantsExtracted = async (grants: Array<Omit<Grant, 'id' | 'lastUpdated' | 'sales' | 'vestingPrices'>>) => {
     const uniqueTickers = [...new Set(grants.map(g => g.ticker).filter(Boolean))];
     const currentPriceMap: Record<string, number> = {};
 

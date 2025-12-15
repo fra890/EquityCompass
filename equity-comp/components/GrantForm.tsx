@@ -7,7 +7,7 @@ import DocumentUpload from './DocumentUpload';
 import { ExtractedGrantData } from '../utils/documentParser';
 
 interface GrantFormProps {
-  onSave: (grant: Omit<Grant, 'id' | 'lastUpdated'>) => void;
+  onSave: (grant: Omit<Grant, 'id' | 'lastUpdated' | 'sales' | 'vestingPrices'>) => void;
   onCancel: () => void;
   initialData?: Grant; // Added for edit mode
 }

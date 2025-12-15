@@ -13,7 +13,7 @@ interface ExistingGrantInfo {
 }
 
 interface BulkDocumentUploadProps {
-  onGrantsExtracted: (grants: Array<Omit<Grant, 'id' | 'lastUpdated'>>) => void;
+  onGrantsExtracted: (grants: Array<Omit<Grant, 'id' | 'lastUpdated' | 'sales' | 'vestingPrices'>>) => void;
   existingGrantIds?: string[];
   existingGrants?: ExistingGrantInfo[];
 }
@@ -177,10 +177,8 @@ const BulkDocumentUpload: React.FC<BulkDocumentUploadProps> = ({
             esppOfferingEndDate: grant.esppOfferingEndDate,
             esppFmvAtOfferingStart: grant.esppFmvAtOfferingStart,
             esppFmvAtPurchase: grant.esppFmvAtPurchase,
-            sales: [],
-            vestingPrices: [],
           };
-        }) as Array<Omit<Grant, 'id' | 'lastUpdated'>>;
+        }) as Array<Omit<Grant, 'id' | 'lastUpdated' | 'sales' | 'vestingPrices'>>;
 
       if (duplicates.length > 0) {
         setDuplicateWarnings(duplicates);
