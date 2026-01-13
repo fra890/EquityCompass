@@ -7,6 +7,11 @@ import { RecordSaleModal } from './RecordSaleModal';
 import BulkDocumentUpload from './BulkDocumentUpload';
 import { NotificationSettings } from './NotificationSettings';
 import { Button } from './Button';
+import { MultiYearExerciseStrategy } from './MultiYearExerciseStrategy';
+import { RSUWithholdingOptimizer } from './RSUWithholdingOptimizer';
+import { ConcentrationRiskDashboard } from './ConcentrationRiskDashboard';
+import { QuarterlyEstimatedTaxCalculator } from './QuarterlyEstimatedTaxCalculator';
+import { ESPPQualificationTracker } from './ESPPQualificationTracker';
 import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Settings, Coins, Building, Download, CheckCircle, Lock, Edit2, Trash2, X, Briefcase, Clock, History, TrendingDown, FileText, ShoppingCart, Upload, RefreshCw, Calendar, Bell } from 'lucide-react';
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -44,7 +49,7 @@ interface ClientDetailProps {
   onUpdateClient: (updatedClient: Client) => void;
 }
 
-type Tab = 'overview' | 'rsu' | 'espp' | 'iso-planning' | 'history';
+type Tab = 'overview' | 'rsu' | 'espp' | 'iso-planning' | 'tax-planning' | 'history';
 
 interface GrantYearData {
   year: string;
@@ -965,6 +970,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
           ISO Planning
         </button>
         <button
+          onClick={() => setActiveTab('tax-planning')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'tax-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Tax Planning
+        </button>
+        <button
           onClick={() => setActiveTab('history')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
@@ -973,8 +984,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       </div>
 
       {activeTab === 'iso-planning' ? (
-        <div className="print:block">
+        <div className="print:block space-y-8">
             <ISOPlanner client={client} grants={client.grants} onSavePlan={handleSavePlan} />
+            <MultiYearExerciseStrategy client={client} grants={client.grants} />
         </div>
       ) : activeTab === 'rsu' ? (
         <div className="space-y-8 animate-fade-in">
@@ -1392,6 +1404,7 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
         </div>
       ) : activeTab === 'espp' ? (
         <div className="space-y-8 animate-fade-in">
+            <ESPPQualificationTracker client={client} grants={client.grants} />
             {(() => {
                 const esppGrants = client.grants.filter(g => g.type === 'ESPP');
                 const { stateRate, fedLtcgRate } = getEffectiveRates(client);
@@ -1668,6 +1681,12 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     </>
                 );
             })()}
+        </div>
+      ) : activeTab === 'tax-planning' ? (
+        <div className="space-y-8 animate-fade-in">
+            <QuarterlyEstimatedTaxCalculator client={client} grants={client.grants} />
+            <RSUWithholdingOptimizer client={client} grants={client.grants} />
+            <ConcentrationRiskDashboard client={client} grants={client.grants} />
         </div>
       ) : activeTab === 'history' ? (
          <div className="space-y-8 animate-fade-in">

@@ -4,6 +4,7 @@ import { calculateISOScenarios, formatCurrency, formatPercent, getGrantStatus, f
 import { Info, CheckCircle, Save, TrendingUp, Lock, Unlock, AlertTriangle, Wallet, ArrowRight, DollarSign, CalendarClock, Zap, Target, PenLine, Calendar, Download } from 'lucide-react';
 import { Button } from './Button';
 import { generateISOComparisonPDF } from '../utils/pdfGenerator';
+import { BreakevenAnalysis } from './BreakevenAnalysis';
 
 interface ISOPlannerProps {
   client: Client;
@@ -754,6 +755,8 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                     </div>
                                 </div>
                             </div>
+
+                            <BreakevenAnalysis client={client} grant={selectedGrant} sharesToExercise={sharesToExercise} />
                         </div>
                     )}
 
