@@ -16,7 +16,7 @@ import { ArrowLeft, Plus, DollarSign, PieChart, TrendingUp, AlertTriangle, Setti
 import { generateVestingSchedule, getQuarterlyProjections, formatCurrency, formatNumber, formatPercent, getEffectiveRates, getGrantStatus, calculateISOQualification } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { saveVestingPrice } from '../services/supabaseService';
-import { generateClientPDF } from '../utils/pdfGenerator';
+import { generateClientPDF, generateVestingOverviewPDF, generateRSUDetailsPDF, generateESPPReportPDF, generateISOPlanningPDF, generateTaxPlanningPDF, generateHistoryReportPDF } from '../utils/pdfGenerator';
 import { useAuth } from '../contexts/AuthContext';
 
 const fetchStockPrice = async (ticker: string, date?: string): Promise<number> => {
@@ -944,42 +944,78 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex gap-1 bg-slate-200/50 p-1 rounded-xl w-fit print:hidden">
+      <div className="flex items-center gap-4 print:hidden">
+        <div className="flex gap-1 bg-slate-200/50 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'overview' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Vesting Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('rsu')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'rsu' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            RSU Details
+          </button>
+          <button
+            onClick={() => setActiveTab('espp')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'espp' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            ESPP Tracker
+          </button>
+          <button
+            onClick={() => setActiveTab('iso-planning')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'iso-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            ISO Planning
+          </button>
+          <button
+            onClick={() => setActiveTab('tax-planning')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'tax-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Tax Planning
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            History & Trends
+          </button>
+        </div>
         <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'overview' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => {
+            const allEvents: VestingEvent[] = [];
+            client.grants.forEach(grant => {
+              const schedule = generateVestingSchedule(grant, client);
+              allEvents.push(...schedule);
+            });
+            const upcomingEvents = allEvents.filter((e: VestingEvent) => !e.isPast);
+            switch (activeTab) {
+              case 'overview':
+                generateVestingOverviewPDF(client, upcomingEvents);
+                break;
+              case 'rsu':
+                generateRSUDetailsPDF(client, client.grants);
+                break;
+              case 'espp':
+                generateESPPReportPDF(client, client.grants);
+                break;
+              case 'iso-planning':
+                generateISOPlanningPDF(client, client.grants);
+                break;
+              case 'tax-planning':
+                generateTaxPlanningPDF(client, client.grants);
+                break;
+              case 'history':
+                generateHistoryReportPDF(client, client.grants);
+                break;
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-tidemark-blue text-white rounded-lg hover:bg-tidemark-blue/90 transition-colors text-sm font-medium shadow-sm"
         >
-          Vesting Overview
-        </button>
-        <button
-          onClick={() => setActiveTab('rsu')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'rsu' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          RSU Details
-        </button>
-        <button
-          onClick={() => setActiveTab('espp')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'espp' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          ESPP Tracker
-        </button>
-        <button
-          onClick={() => setActiveTab('iso-planning')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'iso-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          ISO Planning
-        </button>
-        <button
-          onClick={() => setActiveTab('tax-planning')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'tax-planning' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Tax Planning
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white text-tidemark-navy shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          History & Trends
+          <FileText size={16} />
+          Export Report
         </button>
       </div>
 
