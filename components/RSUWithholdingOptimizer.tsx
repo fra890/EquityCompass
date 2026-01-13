@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Client, Grant } from '../types';
 import { formatCurrency, formatPercent, getEffectiveRates, generateVestingSchedule } from '../utils/calculations';
-import { AlertTriangle, DollarSign, Calculator, CheckCircle, XCircle, Percent } from 'lucide-react';
+import { AlertTriangle, DollarSign, Calculator, CheckCircle, XCircle, Percent, Sliders } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface RSUWithholdingOptimizerProps {
@@ -26,6 +26,7 @@ interface WithholdingAnalysis {
 
 export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = ({ client, grants }) => {
   const rsuGrants = grants.filter(g => g.type === 'RSU');
+  const [customWithholdingRate, setCustomWithholdingRate] = useState<number>(22);
 
   const analysis = useMemo(() => {
     if (rsuGrants.length === 0) return { grants: [], totals: null };
@@ -50,7 +51,7 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
       });
 
       const grantVestingValue = thisYearEvents.reduce((sum, e) => sum + e.grossValue, 0);
-      const electedRate = (grant.withholdingRate ?? 22) / 100;
+      const electedRate = (grant.withholdingRate ?? customWithholdingRate) / 100;
       const withholdingAmount = grantVestingValue * electedRate;
       const actualTax = grantVestingValue * actualTaxRate;
       const gap = actualTax - withholdingAmount;
@@ -91,7 +92,7 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
         quarterlyPayment: Math.max(0, totalGap / 4)
       }
     };
-  }, [rsuGrants, client]);
+  }, [rsuGrants, client, customWithholdingRate]);
 
   if (rsuGrants.length === 0) {
     return (
@@ -118,10 +119,49 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
           <AlertTriangle size={20} />
           RSU Tax Withholding Optimizer
         </h3>
-        <p className="text-sm text-red-100 mt-1">22% flat withholding is often insufficient for high earners</p>
+        <p className="text-sm text-red-100 mt-1">Flat withholding is often insufficient for high earners</p>
       </div>
 
       <div className="p-6 space-y-6">
+        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Sliders size={18} className="text-slate-500" />
+              <label className="text-sm font-bold text-slate-700">Elected Withholding Rate</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="10"
+                max="50"
+                step="1"
+                value={customWithholdingRate}
+                onChange={(e) => setCustomWithholdingRate(parseInt(e.target.value))}
+                className="w-40 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-tidemark-blue"
+              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="50"
+                  value={customWithholdingRate}
+                  onChange={(e) => setCustomWithholdingRate(Math.min(50, Math.max(10, parseInt(e.target.value) || 22)))}
+                  className="w-16 px-2 py-1.5 text-center font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-tidemark-blue outline-none"
+                />
+                <span className="text-slate-500 font-medium">%</span>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500 sm:ml-auto">
+              {customWithholdingRate === 22 ? (
+                <span>Standard supplemental rate</span>
+              ) : customWithholdingRate < 22 ? (
+                <span className="text-amber-600">Below standard rate</span>
+              ) : (
+                <span className="text-emerald-600">Higher withholding elected</span>
+              )}
+            </div>
+          </div>
+        </div>
         {analysis.totals.totalGap > 0 && (
           <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 border border-red-200">
             <div className="flex items-start gap-4">
@@ -186,11 +226,11 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-600">Flat Withholding (Standard)</span>
-                  <span className="font-bold text-blue-600">22%</span>
+                  <span className="text-slate-600">Elected Withholding Rate</span>
+                  <span className="font-bold text-blue-600">{customWithholdingRate}%</span>
                 </div>
                 <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '22%' }}></div>
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${customWithholdingRate}%` }}></div>
                 </div>
               </div>
 
@@ -210,12 +250,15 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
               <div className="pt-4 border-t border-slate-200">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-slate-700">Rate Difference</span>
-                  <span className="text-lg font-bold text-amber-600">
-                    +{formatPercent((analysis.totals.effectiveTaxRate - 22) / 100)}
+                  <span className={`text-lg font-bold ${analysis.totals.effectiveTaxRate > customWithholdingRate ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {analysis.totals.effectiveTaxRate > customWithholdingRate ? '+' : ''}{formatPercent((analysis.totals.effectiveTaxRate - customWithholdingRate) / 100)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  You're paying {formatPercent((analysis.totals.effectiveTaxRate - 22) / 100)} more than the standard withholding covers
+                  {analysis.totals.effectiveTaxRate > customWithholdingRate
+                    ? `You're paying ${formatPercent((analysis.totals.effectiveTaxRate - customWithholdingRate) / 100)} more than your elected withholding covers`
+                    : `Your elected withholding covers your tax liability`
+                  }
                 </p>
               </div>
             </div>
@@ -309,8 +352,9 @@ export const RSUWithholdingOptimizer: React.FC<RSUWithholdingOptimizerProps> = (
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-          <strong>Why 22% is Often Insufficient:</strong> The IRS requires employers to withhold a flat 22% on supplemental wages (including RSUs) up to $1M.
-          However, high earners in states like California face combined marginal rates of 50%+. The gap must be paid via estimated taxes or year-end filing.
+          <strong>About Supplemental Withholding:</strong> The IRS allows employers to withhold a flat rate (commonly 22%) on supplemental wages including RSUs up to $1M.
+          Some employers allow higher elections (e.g., 37%). High earners in states like California face combined marginal rates of 50%+.
+          Any gap must be paid via estimated taxes or year-end filing.
         </div>
       </div>
     </div>
