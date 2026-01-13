@@ -462,111 +462,370 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                 )}
                             </div>
 
-                            {/* Net Difference Highlight */}
-                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg mb-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h4 className="text-sm font-medium text-emerald-100 uppercase tracking-wide">Tax Savings by Holding</h4>
-                                        <p className="text-xs text-emerald-200 mt-1">Benefit of qualifying for long-term capital gains</p>
-                                    </div>
-                                    <TrendingUp className="text-emerald-200" size={24} />
-                                </div>
-                                <div className="flex items-baseline gap-2 mt-4">
-                                    <span className="text-5xl font-bold">{formatCurrency(qualifiedScenario.netProfit - disqualifiedScenario.netProfit)}</span>
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-emerald-400/30">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <div className="text-emerald-200 text-xs mb-1">Sell Now (Disqualified)</div>
-                                            <div className="font-bold text-lg">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                            {/* Recommendation Header */}
+                            {(() => {
+                                const taxSavings = qualifiedScenario.netProfit - disqualifiedScenario.netProfit;
+                                const holdingBenefit = taxSavings > 0;
+                                const amtExceedsRoom = currentSpread > amtStats.room;
+
+                                return (
+                                    <div className={`rounded-xl p-6 border-2 ${
+                                        holdingBenefit && !amtExceedsRoom
+                                            ? 'bg-emerald-50 border-emerald-300'
+                                            : amtExceedsRoom
+                                                ? 'bg-amber-50 border-amber-300'
+                                                : 'bg-slate-50 border-slate-300'
+                                    }`}>
+                                        <div className="flex items-start gap-4">
+                                            <div className={`p-3 rounded-full ${
+                                                holdingBenefit && !amtExceedsRoom
+                                                    ? 'bg-emerald-500'
+                                                    : amtExceedsRoom
+                                                        ? 'bg-amber-500'
+                                                        : 'bg-slate-500'
+                                            }`}>
+                                                {holdingBenefit && !amtExceedsRoom ? (
+                                                    <TrendingUp className="text-white" size={24} />
+                                                ) : (
+                                                    <AlertTriangle className="text-white" size={24} />
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className={`text-xl font-bold mb-1 ${
+                                                    holdingBenefit && !amtExceedsRoom
+                                                        ? 'text-emerald-800'
+                                                        : amtExceedsRoom
+                                                            ? 'text-amber-800'
+                                                            : 'text-slate-800'
+                                                }`}>
+                                                    {holdingBenefit && !amtExceedsRoom
+                                                        ? `Holding saves ${formatCurrency(taxSavings)} in taxes`
+                                                        : amtExceedsRoom
+                                                            ? 'Caution: AMT threshold exceeded'
+                                                            : 'Consider immediate sale'
+                                                    }
+                                                </h3>
+                                                <p className="text-sm text-slate-600 mb-4">
+                                                    {holdingBenefit && !amtExceedsRoom
+                                                        ? `By exercising and holding for 1+ year, you qualify for long-term capital gains rates (0-20%) instead of ordinary income rates (up to ${client.taxBracket}%).`
+                                                        : amtExceedsRoom
+                                                            ? `This exercise amount exceeds your AMT safe harbor by ${formatCurrency(currentSpread - amtStats.room)}. Consider reducing shares or splitting across tax years.`
+                                                            : 'At current prices and tax rates, the benefit of holding is minimal. Consider your liquidity needs.'
+                                                    }
+                                                </p>
+
+                                                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200/50">
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 font-medium mb-1">Sell Now (After Tax)</div>
+                                                        <div className="text-lg font-bold text-slate-700">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 font-medium mb-1">Hold 1 Year (After Tax)</div>
+                                                        <div className="text-lg font-bold text-emerald-700">{formatCurrency(qualifiedScenario.netProfit)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 font-medium mb-1">Tax Savings</div>
+                                                        <div className={`text-lg font-bold ${taxSavings > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                            {taxSavings > 0 ? '+' : ''}{formatCurrency(taxSavings)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="text-emerald-200 text-xs mb-1">Hold 1 Year (Qualified)</div>
-                                            <div className="font-bold text-lg">{formatCurrency(qualifiedScenario.netProfit)}</div>
-                                        </div>
                                     </div>
+                                );
+                            })()}
+
+                            {/* ISO Qualification Requirements */}
+                            <div className="bg-white rounded-xl border border-slate-200 p-5">
+                                <h4 className="font-bold text-tidemark-navy mb-4 flex items-center gap-2">
+                                    <CalendarClock size={18} />
+                                    ISO Qualification Requirements
+                                </h4>
+                                <p className="text-sm text-slate-600 mb-4">
+                                    To receive favorable long-term capital gains treatment on ISOs, you must meet <strong>both</strong> holding period requirements:
+                                </p>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-full bg-tidemark-blue flex items-center justify-center text-white font-bold text-sm">1</div>
+                                            <span className="font-bold text-slate-800">1 Year from Exercise</span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 ml-10">
+                                            Hold shares at least 1 year after exercise date to qualify for LTCG rates on the gain.
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-full bg-tidemark-blue flex items-center justify-center text-white font-bold text-sm">2</div>
+                                            <span className="font-bold text-slate-800">2 Years from Grant</span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 ml-10">
+                                            Hold shares at least 2 years after the original grant date.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+                                    <strong>Disqualifying Disposition:</strong> If you sell before meeting BOTH requirements, it becomes a "disqualifying disposition" and the bargain element (FMV - Strike at exercise) is taxed as ordinary income.
                                 </div>
                             </div>
 
-                            {/* Detailed Comparison Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="border border-slate-200 rounded-xl p-5 bg-white shadow-sm">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h4 className="font-bold text-slate-800 text-base">Sell Immediately</h4>
-                                        <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Disqualified</span>
+                            {/* AMT Deep Dive Section */}
+                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 text-white">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div>
+                                        <h4 className="font-bold text-lg flex items-center gap-2">
+                                            <Info size={20} className="text-amber-400" />
+                                            Understanding AMT on ISOs
+                                        </h4>
+                                        <p className="text-slate-400 text-sm mt-1">Why exercising ISOs can trigger Alternative Minimum Tax</p>
                                     </div>
-                                    <div className="mb-4 pb-4 border-b border-slate-100">
-                                        <div className="text-xs text-slate-500 uppercase font-bold mb-1">Net Profit</div>
-                                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                                </div>
+
+                                <div className="space-y-4 mb-6">
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <h5 className="font-bold text-amber-400 text-sm mb-2">What is AMT?</h5>
+                                        <p className="text-sm text-slate-300">
+                                            The Alternative Minimum Tax is a parallel tax system designed to ensure high-income taxpayers pay a minimum amount of tax.
+                                            It adds back certain "preference items" (like ISO bargain element) and applies a flat 26-28% rate.
+                                        </p>
                                     </div>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Tax Breakdown</div>
+
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <h5 className="font-bold text-amber-400 text-sm mb-2">Why ISOs Trigger AMT</h5>
+                                        <p className="text-sm text-slate-300 mb-3">
+                                            When you exercise ISOs and <strong>hold</strong> the shares (not sell same day), the "bargain element" - the difference between FMV and strike price -
+                                            is added to your AMT income. This is a <strong>paper gain</strong> that creates real tax liability.
+                                        </p>
+                                        <div className="bg-black/30 rounded p-3 font-mono text-xs">
+                                            <div className="text-slate-400">AMT Preference Item =</div>
+                                            <div className="text-amber-400">(FMV at Exercise - Strike Price) x Shares</div>
+                                            <div className="text-slate-400 mt-2">Your current spread:</div>
+                                            <div className="text-amber-400">({formatCurrency(selectedGrant.currentPrice)} - {formatCurrency(selectedGrant.strikePrice || 0)}) x {formatNumber(sharesToExercise)} = <span className="text-white font-bold">{formatCurrency(currentSpread)}</span></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <h5 className="font-bold text-amber-400 text-sm mb-2">The AMT Exemption (Safe Harbor)</h5>
+                                        <p className="text-sm text-slate-300 mb-3">
+                                            You have an AMT exemption that phases out at higher incomes. Exercising ISOs up to this "crossover point"
+                                            means no additional AMT liability - it's effectively tax-free for the current year.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-emerald-500/20 rounded p-3 border border-emerald-500/30">
+                                                <div className="text-xs text-emerald-300 font-bold uppercase mb-1">Your AMT Room</div>
+                                                <div className="text-xl font-bold text-emerald-400">{formatCurrency(amtStats.room)}</div>
+                                                <div className="text-[10px] text-emerald-300/70 mt-1">Safe to exercise without AMT</div>
+                                            </div>
+                                            <div className="bg-white/10 rounded p-3 border border-white/10">
+                                                <div className="text-xs text-slate-400 font-bold uppercase mb-1">Already Used</div>
+                                                <div className="text-xl font-bold text-slate-300">{formatCurrency(amtStats.existingUsed)}</div>
+                                                <div className="text-[10px] text-slate-400/70 mt-1">From prior exercises this year</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <h5 className="font-bold text-amber-400 text-sm mb-2">AMT Credit Recovery</h5>
+                                        <p className="text-sm text-slate-300">
+                                            <strong>Good news:</strong> AMT paid on ISOs creates a credit you can recover in future years when you sell the shares.
+                                            Think of it as a prepayment of tax, not lost money. However, you need cash flow to pay the AMT now.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {isAmtDanger && (
+                                    <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                                            <div>
+                                                <div className="font-bold text-amber-300 mb-1">You're Exceeding AMT Safe Harbor</div>
+                                                <p className="text-sm text-amber-200/80">
+                                                    Your {formatCurrency(currentSpread)} spread exceeds the {formatCurrency(amtStats.room)} AMT room by {formatCurrency(currentSpread - amtStats.room)}.
+                                                    This could trigger approximately <strong>{formatCurrency((currentSpread - amtStats.room) * 0.28)}</strong> in AMT due next April.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Detailed Side-by-Side Comparison */}
+                            <div>
+                                <h4 className="font-bold text-tidemark-navy mb-4 flex items-center gap-2">
+                                    <Target size={18} />
+                                    Detailed Tax Comparison
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Disqualified */}
+                                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                        <div className="bg-slate-100 px-5 py-3 border-b border-slate-200">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-bold text-slate-800">Sell Immediately</h4>
+                                                <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Disqualified</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-1">Exercise and sell same day or within holding period</p>
+                                        </div>
+                                        <div className="p-5">
+                                            <div className="mb-4 pb-4 border-b border-slate-100">
+                                                <div className="text-xs text-slate-500 uppercase font-bold mb-1">Net Proceeds After Tax</div>
+                                                <div className="text-3xl font-bold text-slate-800">{formatCurrency(disqualifiedScenario.netProfit)}</div>
+                                            </div>
+
+                                            <div className="space-y-1 mb-4 pb-4 border-b border-slate-100">
+                                                <div className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">Gain Calculation</div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-500">Sale Proceeds</span>
+                                                    <span className="font-medium">{formatCurrency(sharesToExercise * selectedGrant.currentPrice)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-500">Less: Exercise Cost</span>
+                                                    <span className="font-medium text-red-600">-{formatCurrency(sharesToExercise * (selectedGrant.strikePrice || 0))}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200">
+                                                    <span className="text-slate-700 font-bold">Taxable Gain</span>
+                                                    <span className="font-bold">{formatCurrency(sharesToExercise * (selectedGrant.currentPrice - (selectedGrant.strikePrice || 0)))}</span>
+                                                </div>
+                                                <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded mt-2">
+                                                    Taxed as <strong>Ordinary Income</strong> at your marginal rate
+                                                </div>
+                                            </div>
+
                                             <div className="space-y-2">
+                                                <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Tax Breakdown</div>
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-600">Federal (Ordinary)</span>
+                                                    <span className="text-slate-600">Federal ({client.taxBracket}%)</span>
                                                     <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.fedAmount)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-600">State Tax</span>
+                                                    <span className="text-slate-600">State ({client.state})</span>
                                                     <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.stateAmount)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-600">NIIT (3.8%)</span>
                                                     <span className="font-semibold text-slate-800">{formatCurrency(disqualifiedScenario.taxes.niitAmount)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                                                <div className="flex justify-between items-center text-sm pt-3 mt-2 border-t border-slate-200">
                                                     <span className="text-slate-700 font-bold">Total Tax</span>
-                                                    <span className="font-bold text-red-600">{formatCurrency(disqualifiedScenario.taxes.totalTax)}</span>
+                                                    <span className="font-bold text-red-600 text-lg">{formatCurrency(disqualifiedScenario.taxes.totalTax)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center text-xs text-slate-500">
-                                                    <span>Effective Rate</span>
-                                                    <span className="font-medium">{formatPercent(disqualifiedScenario.taxes.totalTax / (disqualifiedScenario.netProfit + disqualifiedScenario.taxes.totalTax))}</span>
+                                                <div className="flex justify-between items-center text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                                                    <span>Effective Tax Rate</span>
+                                                    <span className="font-bold">{formatPercent(disqualifiedScenario.taxes.totalTax / (disqualifiedScenario.netProfit + disqualifiedScenario.taxes.totalTax))}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                                <div className="text-xs text-slate-600">
+                                                    <strong>Pros:</strong> Immediate liquidity, no market risk, no AMT
+                                                </div>
+                                                <div className="text-xs text-slate-600 mt-1">
+                                                    <strong>Cons:</strong> Highest tax rate, lose ISO tax benefit
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="border border-tidemark-blue/30 rounded-xl p-5 bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm ring-2 ring-tidemark-blue/20">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h4 className="font-bold text-tidemark-navy text-base">Hold 1 Year</h4>
-                                        <span className="text-[10px] font-bold uppercase bg-tidemark-blue text-white px-2 py-0.5 rounded-full">Qualified</span>
-                                    </div>
-                                    <div className="mb-4 pb-4 border-b border-sky-200">
-                                        <div className="text-xs text-tidemark-blue uppercase font-bold mb-1">Net Profit</div>
-                                        <div className="text-2xl font-bold text-tidemark-navy">{formatCurrency(qualifiedScenario.netProfit)}</div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <div className="text-xs font-bold text-tidemark-navy mb-2 uppercase tracking-wide">Tax Breakdown</div>
+                                    {/* Qualified */}
+                                    <div className="border-2 border-tidemark-blue/30 rounded-xl overflow-hidden bg-gradient-to-br from-sky-50 to-blue-50 shadow-sm ring-2 ring-tidemark-blue/10">
+                                        <div className="bg-tidemark-blue/10 px-5 py-3 border-b border-tidemark-blue/20">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-bold text-tidemark-navy">Hold 1+ Year</h4>
+                                                <span className="text-[10px] font-bold uppercase bg-tidemark-blue text-white px-2 py-0.5 rounded-full">Qualified</span>
+                                            </div>
+                                            <p className="text-xs text-tidemark-navy/70 mt-1">Exercise now, sell after meeting holding requirements</p>
+                                        </div>
+                                        <div className="p-5">
+                                            <div className="mb-4 pb-4 border-b border-sky-200">
+                                                <div className="text-xs text-tidemark-blue uppercase font-bold mb-1">Net Proceeds After Tax</div>
+                                                <div className="text-3xl font-bold text-tidemark-navy">{formatCurrency(qualifiedScenario.netProfit)}</div>
+                                            </div>
+
+                                            <div className="space-y-1 mb-4 pb-4 border-b border-sky-200">
+                                                <div className="text-xs font-bold text-tidemark-navy uppercase tracking-wide mb-2">Gain Calculation</div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-600">Projected Sale</span>
+                                                    <span className="font-medium">{formatCurrency(sharesToExercise * futurePrice)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-600">Less: Exercise Cost</span>
+                                                    <span className="font-medium text-red-600">-{formatCurrency(sharesToExercise * (selectedGrant.strikePrice || 0))}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-sky-200">
+                                                    <span className="text-tidemark-navy font-bold">Taxable Gain</span>
+                                                    <span className="font-bold">{formatCurrency(sharesToExercise * (futurePrice - (selectedGrant.strikePrice || 0)))}</span>
+                                                </div>
+                                                <div className="text-xs text-emerald-700 bg-emerald-50 p-2 rounded mt-2">
+                                                    Entire gain taxed as <strong>Long-Term Capital Gains</strong> (0-20%)
+                                                </div>
+                                            </div>
+
                                             <div className="space-y-2">
+                                                <div className="text-xs font-bold text-tidemark-navy mb-2 uppercase tracking-wide">Tax Breakdown</div>
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-700">Federal LTCG</span>
                                                     <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.fedAmount)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-700">State Tax</span>
+                                                    <span className="text-slate-700">State ({client.state})</span>
                                                     <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.stateAmount)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-700">NIIT (3.8%)</span>
                                                     <span className="font-semibold text-tidemark-navy">{formatCurrency(qualifiedScenario.taxes.niitAmount)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-700">AMT Preference</span>
-                                                    <span className="font-semibold text-orange-600">{formatCurrency(qualifiedScenario.amtPreference)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-sm pt-2 border-t border-sky-200">
+                                                {currentSpread > amtStats.room && (
+                                                    <div className="flex justify-between items-center text-sm bg-amber-50 p-2 rounded border border-amber-200">
+                                                        <span className="text-amber-800 font-medium">AMT (est.)</span>
+                                                        <span className="font-bold text-amber-600">{formatCurrency((currentSpread - amtStats.room) * 0.28)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center text-sm pt-3 mt-2 border-t border-sky-200">
                                                     <span className="text-tidemark-navy font-bold">Total Tax</span>
-                                                    <span className="font-bold text-tidemark-blue">{formatCurrency(qualifiedScenario.taxes.totalTax)}</span>
+                                                    <span className="font-bold text-tidemark-blue text-lg">{formatCurrency(qualifiedScenario.taxes.totalTax)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center text-xs text-slate-600">
-                                                    <span>Effective Rate</span>
-                                                    <span className="font-medium">{formatPercent(qualifiedScenario.taxes.totalTax / (qualifiedScenario.netProfit + qualifiedScenario.taxes.totalTax))}</span>
+                                                <div className="flex justify-between items-center text-xs text-slate-600 bg-sky-100 p-2 rounded">
+                                                    <span>Effective Tax Rate</span>
+                                                    <span className="font-bold">{formatPercent(qualifiedScenario.taxes.totalTax / (qualifiedScenario.netProfit + qualifiedScenario.taxes.totalTax))}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 pt-4 border-t border-sky-200">
+                                                <div className="text-xs text-slate-700">
+                                                    <strong>Pros:</strong> Lowest tax rate, maximize ISO benefit
+                                                </div>
+                                                <div className="text-xs text-slate-700 mt-1">
+                                                    <strong>Cons:</strong> Market risk, cash needed to exercise, potential AMT
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Key Decision Factors */}
+                            <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                                <h4 className="font-bold text-tidemark-navy mb-4">Key Decision Factors</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-white rounded-lg p-4 border border-slate-200">
+                                        <div className="text-sm font-bold text-slate-800 mb-2">Cash Available?</div>
+                                        <p className="text-xs text-slate-600">
+                                            Holding requires {formatCurrency(sharesToExercise * (selectedGrant.strikePrice || 0))} to exercise, plus potential AMT cash.
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-slate-200">
+                                        <div className="text-sm font-bold text-slate-800 mb-2">Stock Outlook?</div>
+                                        <p className="text-xs text-slate-600">
+                                            Holding assumes price goes to {formatCurrency(futurePrice)}. If stock drops, tax savings may not offset losses.
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-slate-200">
+                                        <div className="text-sm font-bold text-slate-800 mb-2">Concentration Risk?</div>
+                                        <p className="text-xs text-slate-600">
+                                            Consider total portfolio exposure. Diversification may outweigh tax savings for large positions.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
