@@ -398,7 +398,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                             <div className="flex justify-between items-start mb-6">
                                                 <div>
                                                     <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Tax Benefit Analysis</h3>
-                                                    <p className="text-xs text-slate-500 mt-1">Same sale price comparison (pure tax impact)</p>
+                                                    <p className="text-xs text-slate-500 mt-1">Tax savings by holding for qualified disposition</p>
                                                 </div>
                                                 <button
                                                     onClick={handleExportPDF}
@@ -441,14 +441,14 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                 );
                             })()}
 
-                            {/* Side-by-Side Equal Comparison Cards */}
+                            {/* Side-by-Side Tax Comparison Cards */}
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="font-bold text-tidemark-navy flex items-center gap-2">
                                         <Target size={18} />
                                         Side-by-Side Tax Comparison
                                     </h4>
-                                    <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Same {formatCurrency(selectedGrant.currentPrice)} sale price</span>
+                                    <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Current price: {formatCurrency(selectedGrant.currentPrice)}</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Disqualified */}

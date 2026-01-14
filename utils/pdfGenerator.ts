@@ -331,7 +331,7 @@ export const generateISOComparisonPDF = (data: ISOComparisonData) => {
 
   doc.setFontSize(14);
   doc.setTextColor(...primaryColor);
-  doc.text('Side-by-Side Comparison (Same Sale Price)', 14, yPosition);
+  doc.text('Side-by-Side Tax Comparison', 14, yPosition);
 
   yPosition += 5;
 
