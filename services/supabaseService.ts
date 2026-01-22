@@ -344,7 +344,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
       throw new Error(`Grant ${grant.id} is missing vesting_schedule`);
     }
 
-    const grantData = {
+    const grantData: Record<string, any> = {
       client_id: client.id,
       type: grant.type,
       ticker: grant.ticker || '',
@@ -355,7 +355,6 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
       grant_date: grant.grantDate,
       total_shares: grant.totalShares,
       vesting_schedule: grant.vestingSchedule,
-      custom_vesting_dates: grant.customVestingDates || null,
       withholding_rate: grant.withholdingRate || null,
       custom_held_shares: grant.customHeldShares || null,
       average_cost_basis: grant.averageCostBasis || null,
