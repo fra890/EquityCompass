@@ -100,22 +100,25 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
   if (!selectedGrant || !grantStatus) return null;
 
   // --- Calculations for Buy & Hold ---
-  // Disqualified scenario (sell immediately at current price)
+  // Use the projected sale price for comparison
+  const salePrice = futurePrice > 0 ? futurePrice : selectedGrant.currentPrice;
+
+  // Disqualified scenario (sell immediately at projected price)
   const disqualifiedScenario = calculateISOScenarios(
       sharesToExercise,
       selectedGrant.strikePrice || 0,
       selectedGrant.currentPrice,
-      selectedGrant.currentPrice,
+      salePrice,
       client,
       false
   );
 
-  // Equal comparison: same sale price for both (current price) to show pure tax difference
+  // Qualified scenario: same sale price to show pure tax difference
   const equalQualifiedScenario = calculateISOScenarios(
       sharesToExercise,
       selectedGrant.strikePrice || 0,
       selectedGrant.currentPrice,
-      selectedGrant.currentPrice,
+      salePrice,
       client,
       true
   );
@@ -448,7 +451,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                         <Target size={18} />
                                         Side-by-Side Tax Comparison
                                     </h4>
-                                    <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Current price: {formatCurrency(selectedGrant.currentPrice)}</span>
+                                    <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Sale price: {formatCurrency(salePrice)}</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Disqualified */}
@@ -470,7 +473,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                 <div className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">Gain Calculation</div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-slate-500">Sale Proceeds</span>
-                                                    <span className="font-medium">{formatCurrency(sharesToExercise * selectedGrant.currentPrice)}</span>
+                                                    <span className="font-medium">{formatCurrency(sharesToExercise * salePrice)}</span>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-slate-500">Less: Exercise Cost</span>
@@ -478,7 +481,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                 </div>
                                                 <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200">
                                                     <span className="text-slate-700 font-bold">Taxable Gain</span>
-                                                    <span className="font-bold">{formatCurrency(currentSpread)}</span>
+                                                    <span className="font-bold">{formatCurrency(sharesToExercise * (salePrice - (selectedGrant.strikePrice || 0)))}</span>
                                                 </div>
                                                 <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded mt-2">
                                                     Taxed as <strong>Ordinary Income</strong> at {client.taxBracket}%
@@ -530,7 +533,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                 <div className="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-2">Gain Calculation</div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-slate-600">Sale Proceeds</span>
-                                                    <span className="font-medium">{formatCurrency(sharesToExercise * selectedGrant.currentPrice)}</span>
+                                                    <span className="font-medium">{formatCurrency(sharesToExercise * salePrice)}</span>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-slate-600">Less: Exercise Cost</span>
@@ -538,7 +541,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                 </div>
                                                 <div className="flex justify-between text-sm pt-2 border-t border-dashed border-emerald-200">
                                                     <span className="text-emerald-800 font-bold">Taxable Gain</span>
-                                                    <span className="font-bold">{formatCurrency(currentSpread)}</span>
+                                                    <span className="font-bold">{formatCurrency(sharesToExercise * (salePrice - (selectedGrant.strikePrice || 0)))}</span>
                                                 </div>
                                                 <div className="text-xs text-emerald-700 bg-emerald-100 p-2 rounded mt-2">
                                                     Entire gain taxed as <strong>Long-Term Capital Gains</strong> (0-20%)
