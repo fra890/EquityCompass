@@ -403,9 +403,59 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     totalGain = (grant.currentPrice - grant.averageCostBasis) * sharesHeld;
                 }
 
+            } else if (grant.vestingPrices && grant.vestingPrices.length > 0) {
+                const now = new Date();
+                const oneYearAgo = new Date(now);
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+                let totalSharesVested = 0;
+                let totalCostBasis = 0;
+
+                for (const vp of grant.vestingPrices) {
+                    const vestDate = new Date(vp.vestDate);
+                    if (vestDate <= now) {
+                        totalSharesVested += vp.sharesVested;
+                        totalCostBasis += vp.sharesVested * vp.priceAtVest;
+
+                        const isLT = vestDate <= oneYearAgo;
+                        const lotCurrentValue = vp.sharesVested * grant.currentPrice;
+                        const lotGain = lotCurrentValue - (vp.sharesVested * vp.priceAtVest);
+
+                        allLots.push({
+                            vestDate: vp.vestDate,
+                            shares: vp.sharesVested,
+                            costBasis: vp.sharesVested * vp.priceAtVest,
+                            currentValue: lotCurrentValue,
+                            gain: lotGain,
+                            isLongTerm: isLT,
+                            grantTicker: grant.ticker
+                        });
+
+                        if (isLT) {
+                            longTerm += vp.sharesVested;
+                            longTermValue += lotCurrentValue;
+                            longTermGain += lotGain;
+                        } else {
+                            shortTerm += vp.sharesVested;
+                            shortTermValue += lotCurrentValue;
+                            shortTermGain += lotGain;
+                        }
+                    }
+                }
+
+                const totalSharesSold = grant.sales.reduce((sum, s) => sum + s.sharesSold, 0);
+                sharesHeld = totalSharesVested - totalSharesSold;
+
+                if (sharesHeld > 0 && totalSharesVested > 0) {
+                    const avgCostPerShare = totalCostBasis / totalSharesVested;
+                    currentVal = sharesHeld * grant.currentPrice;
+                    hasGainData = true;
+                    totalGain = currentVal - (sharesHeld * avgCostPerShare);
+                } else {
+                    sharesHeld = 0;
+                    currentVal = 0;
+                }
             } else {
-                // Default: Assume all vested shares were sold (diversification)
-                // Vested holdings = $0 unless customHeldShares is explicitly set
                 sharesHeld = 0;
                 currentVal = 0;
             }
@@ -2030,9 +2080,11 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         <div className="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-400 flex items-center gap-1">
                             <InfoIcon />
                             <span>
-                                {client.grants.some(g => g.customHeldShares !== undefined) 
-                                 ? "Includes Manual Overrides (FIFO Estimated Term)." 
-                                 : "Assuming 'Sell-to-Cover' strategy."}
+                                {client.grants.some(g => g.customHeldShares !== undefined)
+                                 ? "Includes Manual Overrides (FIFO Estimated Term)."
+                                 : client.grants.some(g => g.type === 'RSU' && g.vestingPrices && g.vestingPrices.length > 0)
+                                   ? "Tracking from recorded vesting prices."
+                                   : "No holdings data yet."}
                             </span>
                         </div>
                     </div>

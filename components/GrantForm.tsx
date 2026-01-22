@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
-import { Grant, GrantType } from '../types';
+import { Grant, GrantType, CustomVestingDate } from '../types';
 import { fetchStockPrice } from '../services/geminiService';
-import { Search, Loader2, PenLine } from 'lucide-react';
+import { Search, Loader2, PenLine, Plus, Trash2, Calendar } from 'lucide-react';
 import DocumentUpload from './DocumentUpload';
 import { ExtractedGrantData } from '../utils/documentParser';
 
@@ -29,6 +29,9 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
   const [averageCostBasis, setAverageCostBasis] = useState<string>('');
   const [showOverride, setShowOverride] = useState(false);
 
+  // Custom Vesting Dates
+  const [customVestingDates, setCustomVestingDates] = useState<CustomVestingDate[]>([]);
+
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   const [priceError, setPriceError] = useState('');
 
@@ -49,6 +52,8 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       setCustomHeldShares(initialData.customHeldShares != null ? String(initialData.customHeldShares) : '');
       setAverageCostBasis(initialData.averageCostBasis != null ? String(initialData.averageCostBasis) : '');
       if (initialData.customHeldShares != null) setShowOverride(true);
+
+      setCustomVestingDates(initialData.customVestingDates || []);
     } else {
       setType('RSU');
       setTicker('');
@@ -63,6 +68,7 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       setCustomHeldShares('');
       setAverageCostBasis('');
       setShowOverride(false);
+      setCustomVestingDates([]);
     }
   }, [initialData]);
 
@@ -145,6 +151,15 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       return;
     }
 
+    const validCustomVestingDates = vestingSchedule === 'custom'
+      ? customVestingDates.filter(v => v.date && v.shares > 0)
+      : undefined;
+
+    if (vestingSchedule === 'custom' && (!validCustomVestingDates || validCustomVestingDates.length === 0)) {
+      alert('Please add at least one valid vesting date with shares');
+      return;
+    }
+
     onSave({
       type,
       ticker: ticker.toUpperCase(),
@@ -155,6 +170,7 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
       grantDate,
       totalShares: parseFloat(totalShares),
       vestingSchedule,
+      customVestingDates: validCustomVestingDates,
       withholdingRate: (type === 'RSU' || type === 'ESPP') ? parseFloat(withholdingRate) : undefined,
       customHeldShares: customHeldShares ? parseFloat(customHeldShares) : undefined,
       averageCostBasis: averageCostBasis ? parseFloat(averageCostBasis) : undefined
@@ -338,18 +354,98 @@ export const GrantForm: React.FC<GrantFormProps> = ({ onSave, onCancel, initialD
         <label className={labelClass}>Vesting Schedule</label>
         <select
           value={vestingSchedule}
-          onChange={(e) => setVestingSchedule(e.target.value as Grant['vestingSchedule'])}
+          onChange={(e) => {
+            const newSchedule = e.target.value as Grant['vestingSchedule'];
+            setVestingSchedule(newSchedule);
+            if (newSchedule === 'custom' && customVestingDates.length === 0) {
+              setCustomVestingDates([{ date: '', shares: 0 }]);
+            }
+          }}
           className={inputClass}
         >
           <option value="standard_4y_1y_cliff">Standard 4-Year (1 Year Cliff)</option>
           <option value="standard_4y_quarterly">Standard 4-Year (Quarterly Immediate)</option>
+          <option value="custom">Custom Vesting Dates</option>
         </select>
         <p className="text-xs text-slate-500 mt-1">
-          {vestingSchedule === 'standard_4y_1y_cliff' 
-            ? '25% vests after 1 year, then 1/16th quarterly thereafter.' 
-            : '1/16th vests every quarter starting 3 months after grant.'}
+          {vestingSchedule === 'standard_4y_1y_cliff'
+            ? '25% vests after 1 year, then 1/16th quarterly thereafter.'
+            : vestingSchedule === 'standard_4y_quarterly'
+            ? '1/16th vests every quarter starting 3 months after grant.'
+            : 'Enter specific vesting dates manually (e.g., SpaceX bi-annual vesting).'}
         </p>
       </div>
+
+      {vestingSchedule === 'custom' && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Calendar size={16} className="text-slate-500" />
+              Custom Vesting Dates
+            </label>
+            <button
+              type="button"
+              onClick={() => setCustomVestingDates([...customVestingDates, { date: '', shares: 0 }])}
+              className="flex items-center gap-1 text-xs font-medium text-tidemark-blue hover:text-tidemark-blue/80 transition-colors"
+            >
+              <Plus size={14} />
+              Add Date
+            </button>
+          </div>
+
+          {customVestingDates.map((vest, index) => (
+            <div key={index} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-500 mb-1">Vest Date</label>
+                <input
+                  type="date"
+                  value={vest.date}
+                  onChange={(e) => {
+                    const updated = [...customVestingDates];
+                    updated[index].date = e.target.value;
+                    setCustomVestingDates(updated);
+                  }}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-tidemark-blue focus:border-tidemark-blue outline-none"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-slate-500 mb-1">Shares</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={vest.shares || ''}
+                  onChange={(e) => {
+                    const updated = [...customVestingDates];
+                    updated[index].shares = parseFloat(e.target.value) || 0;
+                    setCustomVestingDates(updated);
+                  }}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-tidemark-blue focus:border-tidemark-blue outline-none"
+                  placeholder="0"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = customVestingDates.filter((_, i) => i !== index);
+                  setCustomVestingDates(updated.length > 0 ? updated : [{ date: '', shares: 0 }]);
+                }}
+                className="mt-5 p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+
+          {customVestingDates.length > 0 && (
+            <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-200">
+              <span>{customVestingDates.length} vesting event{customVestingDates.length !== 1 ? 's' : ''}</span>
+              <span className="font-medium">
+                Total: {customVestingDates.reduce((sum, v) => sum + (v.shares || 0), 0).toLocaleString()} shares
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="pt-2 border-t border-slate-100">
          <button 

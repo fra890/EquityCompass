@@ -28,6 +28,7 @@ interface DbGrant {
   grant_date: string;
   total_shares: number;
   vesting_schedule: string;
+  custom_vesting_dates?: { date: string; shares: number }[];
   withholding_rate?: number;
   custom_held_shares?: number;
   average_cost_basis?: number;
@@ -141,6 +142,7 @@ function dbGrantToGrant(dbGrant: DbGrant, sales: StockSale[] = [], vestingPrices
     grantDate: dbGrant.grant_date,
     totalShares: dbGrant.total_shares,
     vestingSchedule: dbGrant.vesting_schedule as any,
+    customVestingDates: dbGrant.custom_vesting_dates,
     withholdingRate: dbGrant.withholding_rate,
     customHeldShares: dbGrant.custom_held_shares,
     averageCostBasis: dbGrant.average_cost_basis,
@@ -353,6 +355,7 @@ export const saveClient = async (userId: string, client: Client): Promise<void> 
       grant_date: grant.grantDate,
       total_shares: grant.totalShares,
       vesting_schedule: grant.vestingSchedule,
+      custom_vesting_dates: grant.customVestingDates || null,
       withholding_rate: grant.withholdingRate || null,
       custom_held_shares: grant.customHeldShares || null,
       average_cost_basis: grant.averageCostBasis || null,

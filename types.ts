@@ -25,6 +25,11 @@ export interface StockSale {
   createdAt: string;
 }
 
+export interface CustomVestingDate {
+  date: string;
+  shares: number;
+}
+
 export interface Grant {
   id: string;
   type: GrantType;
@@ -35,7 +40,8 @@ export interface Grant {
   strikePrice?: number;
   grantDate: string;
   totalShares: number;
-  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly' | 'immediate';
+  vestingSchedule: 'standard_4y_1y_cliff' | 'standard_4y_quarterly' | 'immediate' | 'custom';
+  customVestingDates?: CustomVestingDate[];
   withholdingRate?: number;
 
   customHeldShares?: number;

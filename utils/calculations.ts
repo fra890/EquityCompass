@@ -358,7 +358,13 @@ export const generateVestingSchedule = (grant: Grant, client: Client, simulateSe
 
   const electedRate = (grant.withholdingRate !== undefined ? grant.withholdingRate : 22) / 100;
 
-  if (grant.vestingSchedule === 'standard_4y_1y_cliff') {
+  if (grant.vestingSchedule === 'custom' && grant.customVestingDates && grant.customVestingDates.length > 0) {
+    for (const customVest of grant.customVestingDates) {
+      const vestDate = new Date(customVest.date);
+      const historicalPrice = vestDate < now ? getHistoricalPriceForDate(grant, vestDate) : undefined;
+      events.push(calculateEvent(vestDate, customVest.shares, grant, clientTaxRate, stateRate, electedRate, simulateSellAll, historicalPrice));
+    }
+  } else if (grant.vestingSchedule === 'standard_4y_1y_cliff') {
     const cliffDate = addMonths(grantDate, 12);
     const cliffShares = totalShares * 0.25;
     const cliffPrice = cliffDate < now ? getHistoricalPriceForDate(grant, cliffDate) : undefined;
@@ -598,4 +604,116 @@ STATUS:CONFIRMED
 CATEGORIES:Financial,Client
 END:VEVENT
 END:VCALENDAR`;
+};
+
+export interface CapitalGainsInfo {
+  grantId: string;
+  ticker: string;
+  companyName: string;
+  grantType: string;
+  sharesHeld: number;
+  totalCostBasis: number;
+  averageCostBasis: number;
+  currentValue: number;
+  unrealizedGain: number;
+  unrealizedGainPercent: number;
+  isLongTerm: boolean;
+  vestingLots: {
+    vestDate: string;
+    shares: number;
+    priceAtVest: number;
+    currentValue: number;
+    gain: number;
+    isLongTerm: boolean;
+  }[];
+}
+
+export const calculateCapitalGains = (grant: Grant): CapitalGainsInfo | null => {
+  if (grant.type !== 'RSU') {
+    return null;
+  }
+
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  const vestingLots: CapitalGainsInfo['vestingLots'] = [];
+  let totalSharesVested = 0;
+  let totalCostBasis = 0;
+
+  for (const vp of grant.vestingPrices) {
+    const vestDate = new Date(vp.vestDate);
+    if (vestDate <= now) {
+      totalSharesVested += vp.sharesVested;
+      totalCostBasis += vp.sharesVested * vp.priceAtVest;
+
+      vestingLots.push({
+        vestDate: vp.vestDate,
+        shares: vp.sharesVested,
+        priceAtVest: vp.priceAtVest,
+        currentValue: vp.sharesVested * grant.currentPrice,
+        gain: vp.sharesVested * (grant.currentPrice - vp.priceAtVest),
+        isLongTerm: vestDate <= oneYearAgo,
+      });
+    }
+  }
+
+  const totalSharesSold = grant.sales.reduce((sum, s) => sum + s.sharesSold, 0);
+
+  const sharesHeld = totalSharesVested - totalSharesSold;
+
+  if (sharesHeld <= 0 || totalSharesVested === 0) {
+    return null;
+  }
+
+  const adjustedCostBasis = (totalCostBasis / totalSharesVested) * sharesHeld;
+  const currentValue = sharesHeld * grant.currentPrice;
+  const unrealizedGain = currentValue - adjustedCostBasis;
+  const unrealizedGainPercent = adjustedCostBasis > 0 ? (unrealizedGain / adjustedCostBasis) : 0;
+
+  const hasLongTermLots = vestingLots.some(lot => lot.isLongTerm);
+
+  return {
+    grantId: grant.id,
+    ticker: grant.ticker,
+    companyName: grant.companyName,
+    grantType: grant.type,
+    sharesHeld,
+    totalCostBasis: adjustedCostBasis,
+    averageCostBasis: adjustedCostBasis / sharesHeld,
+    currentValue,
+    unrealizedGain,
+    unrealizedGainPercent,
+    isLongTerm: hasLongTermLots,
+    vestingLots: vestingLots.filter(lot => lot.shares > 0),
+  };
+};
+
+export const calculateClientCapitalGains = (client: Client): {
+  totalUnrealizedGain: number;
+  totalCostBasis: number;
+  totalCurrentValue: number;
+  grants: CapitalGainsInfo[];
+} => {
+  const grants: CapitalGainsInfo[] = [];
+  let totalUnrealizedGain = 0;
+  let totalCostBasis = 0;
+  let totalCurrentValue = 0;
+
+  for (const grant of client.grants) {
+    const gainInfo = calculateCapitalGains(grant);
+    if (gainInfo && gainInfo.sharesHeld > 0) {
+      grants.push(gainInfo);
+      totalUnrealizedGain += gainInfo.unrealizedGain;
+      totalCostBasis += gainInfo.totalCostBasis;
+      totalCurrentValue += gainInfo.currentValue;
+    }
+  }
+
+  return {
+    totalUnrealizedGain,
+    totalCostBasis,
+    totalCurrentValue,
+    grants,
+  };
 };
