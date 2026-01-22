@@ -40,6 +40,33 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
     }, 0);
   }, [isoGrants, client]);
 
+  // Calculate totals across ALL ISO grants
+  const allGrantsTotals = useMemo(() => {
+    return isoGrants.reduce((totals, grant) => {
+      const status = getGrantStatus(grant, client.plannedExercises || []);
+      const spread = grant.currentPrice - (grant.strikePrice || 0);
+      return {
+        totalShares: totals.totalShares + grant.totalShares,
+        available: totals.available + status.available,
+        unvested: totals.unvested + status.unvested,
+        exercised: totals.exercised + status.exercised,
+        availableValue: totals.availableValue + (status.available * grant.currentPrice),
+        availableSpread: totals.availableSpread + (status.available * spread),
+        totalSpread: totals.totalSpread + (grant.totalShares * spread),
+        exerciseCost: totals.exerciseCost + (status.available * (grant.strikePrice || 0)),
+      };
+    }, {
+      totalShares: 0,
+      available: 0,
+      unvested: 0,
+      exercised: 0,
+      availableValue: 0,
+      availableSpread: 0,
+      totalSpread: 0,
+      exerciseCost: 0,
+    });
+  }, [isoGrants, client.plannedExercises]);
+
   useEffect(() => {
     if (selectedGrant && grantStatus) {
         setFuturePrice(selectedGrant.currentPrice * 1.1);
@@ -137,6 +164,82 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
 
   return (
     <div className="space-y-6 animate-fade-in">
+        {/* Portfolio Summary */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+
+            <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                            <Target size={20} className="text-blue-400" />
+                            ISO Portfolio Summary
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-1">Totals across all {isoGrants.length} ISO grant{isoGrants.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs text-slate-400 uppercase tracking-wider">Total Grant Value</div>
+                        <div className="text-2xl font-bold text-white">{formatCurrency(allGrantsTotals.totalSpread)}</div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Unlock size={16} className="text-emerald-400" />
+                            <span className="text-xs text-slate-400 uppercase font-bold">Available Now</span>
+                        </div>
+                        <div className="text-2xl font-bold text-emerald-400">{formatNumber(allGrantsTotals.available)}</div>
+                        <div className="text-xs text-slate-500 mt-1">shares ready to exercise</div>
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="text-xs text-slate-400">Spread Value</div>
+                            <div className="text-sm font-bold text-emerald-300">{formatCurrency(allGrantsTotals.availableSpread)}</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Lock size={16} className="text-amber-400" />
+                            <span className="text-xs text-slate-400 uppercase font-bold">Unvested</span>
+                        </div>
+                        <div className="text-2xl font-bold text-amber-400">{formatNumber(allGrantsTotals.unvested)}</div>
+                        <div className="text-xs text-slate-500 mt-1">shares still vesting</div>
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="text-xs text-slate-400">12-Mo Projection</div>
+                            <div className="text-sm font-bold text-amber-300">+{formatNumber(projected12MonthISO)}</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle size={16} className="text-blue-400" />
+                            <span className="text-xs text-slate-400 uppercase font-bold">Exercised</span>
+                        </div>
+                        <div className="text-2xl font-bold text-blue-400">{formatNumber(allGrantsTotals.exercised)}</div>
+                        <div className="text-xs text-slate-500 mt-1">shares already exercised</div>
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="text-xs text-slate-400">Total Granted</div>
+                            <div className="text-sm font-bold text-slate-300">{formatNumber(allGrantsTotals.totalShares)}</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <DollarSign size={16} className="text-slate-300" />
+                            <span className="text-xs text-slate-400 uppercase font-bold">Exercise Cost</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-200">{formatCurrency(allGrantsTotals.exerciseCost)}</div>
+                        <div className="text-xs text-slate-500 mt-1">to exercise all available</div>
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="text-xs text-slate-400">Market Value</div>
+                            <div className="text-sm font-bold text-slate-300">{formatCurrency(allGrantsTotals.availableValue)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {/* All ISO Grants Table */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
