@@ -90,14 +90,15 @@ export const addMonths = (date: Date, months: number): Date => {
 };
 
 export const getEffectiveRates = (client: Client) => {
-    const stateRate = client.customStateTaxRate !== undefined 
-        ? client.customStateTaxRate / 100 
+    const customState = client.customStateTaxRate;
+    const stateRate = (customState != null && customState > 0)
+        ? customState / 100
         : (STATE_TAX_RATES[client.state] || STATE_TAX_RATES['Other']);
-    
-    // LTCG rates likely to remain similar (0/15/20) but we align breakpoints 
-    const fedLtcgRate = client.customLtcgTaxRate !== undefined
-        ? client.customLtcgTaxRate / 100
-        : (client.taxBracket > 33 ? 0.20 : 0.15); 
+
+    const customLtcg = client.customLtcgTaxRate;
+    const fedLtcgRate = (customLtcg != null && customLtcg > 0)
+        ? customLtcg / 100
+        : (client.taxBracket > 33 ? 0.20 : 0.15);
 
     return { stateRate, fedLtcgRate };
 };
