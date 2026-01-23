@@ -289,10 +289,35 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
      return client.grants
         .filter(g => g.type === 'RSU')
         .reduce((sum, g) => {
-             const status = getGrantStatus(g, []); 
+             const status = getGrantStatus(g, []);
              return sum + (status.unvested * g.currentPrice);
         }, 0);
   }, [client.grants]);
+
+  const yearlyVestingProjection = useMemo(() => {
+    const now = new Date();
+    const yearlyData: Record<number, { shares: number; value: number }> = {};
+
+    client.grants
+      .filter(g => g.type === 'RSU')
+      .forEach(grant => {
+        const schedule = generateVestingSchedule(grant, client);
+        schedule
+          .filter(e => new Date(e.date) > now)
+          .forEach(event => {
+            const year = new Date(event.date).getFullYear();
+            if (!yearlyData[year]) {
+              yearlyData[year] = { shares: 0, value: 0 };
+            }
+            yearlyData[year].shares += event.shares;
+            yearlyData[year].value += event.shares * (grant.currentPrice || 0);
+          });
+      });
+
+    return Object.entries(yearlyData)
+      .map(([year, data]) => ({ year: parseInt(year), ...data }))
+      .sort((a, b) => a.year - b.year);
+  }, [client.grants, client]);
 
   // --- Holdings Calculation (New Feature with ST/LT Split) ---
   const holdings = useMemo(() => {
@@ -1136,6 +1161,41 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                     </p>
                 </div>
             </div>
+
+            {yearlyVestingProjection.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                  <h3 className="text-lg font-bold text-tidemark-navy flex items-center gap-2">
+                    <Calendar size={20} />
+                    Projected Vesting by Year
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">Future RSU shares scheduled to vest each year</p>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {yearlyVestingProjection.map(({ year, shares, value }) => (
+                      <div key={year} className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                        <p className="text-sm font-semibold text-slate-500">{year}</p>
+                        <p className="text-xl font-bold text-tidemark-navy">{formatNumber(shares)}</p>
+                        <p className="text-xs text-slate-400">shares</p>
+                        <p className="text-sm font-medium text-emerald-600 mt-1">{formatCurrency(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-600">Total Unvested</span>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-tidemark-navy">
+                        {formatNumber(yearlyVestingProjection.reduce((sum, y) => sum + y.shares, 0))} shares
+                      </span>
+                      <span className="text-sm text-slate-500 ml-2">
+                        ({formatCurrency(yearlyVestingProjection.reduce((sum, y) => sum + y.value, 0))})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* All RSU Grants Detail Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
