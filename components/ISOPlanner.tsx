@@ -460,7 +460,9 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
 
                             {/* Hero Tax Savings Banner */}
                             {(() => {
-                                const equalTaxSavings = equalQualifiedScenario.netProfit - disqualifiedScenario.netProfit;
+                                const estimatedAmtTax = isAmtDanger ? (currentSpread - amtStats.room) * 0.28 : 0;
+                                const qualifiedNetAfterAmt = equalQualifiedScenario.netProfit - estimatedAmtTax;
+                                const equalTaxSavings = qualifiedNetAfterAmt - disqualifiedScenario.netProfit;
 
                                 const handleExportPDF = () => {
                                     generateISOComparisonPDF({
@@ -531,8 +533,8 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                 </div>
                                                 <div className="text-center border-x border-white/10 px-4">
                                                     <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Hold 1+ Year</div>
-                                                    <div className="text-2xl font-bold text-emerald-400">{formatCurrency(equalQualifiedScenario.netProfit)}</div>
-                                                    <div className="text-xs text-slate-500 mt-1">Long-Term Cap Gains</div>
+                                                    <div className="text-2xl font-bold text-emerald-400">{formatCurrency(qualifiedNetAfterAmt)}</div>
+                                                    <div className="text-xs text-slate-500 mt-1">Long-Term Cap Gains{estimatedAmtTax > 0 ? ' + AMT' : ''}</div>
                                                 </div>
                                                 <div className="text-center">
                                                     <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Your Savings</div>
@@ -629,7 +631,7 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                         <div className="p-5">
                                             <div className="mb-4 pb-4 border-b border-emerald-200">
                                                 <div className="text-xs text-emerald-600 uppercase font-bold mb-1">Net Proceeds After Tax</div>
-                                                <div className="text-3xl font-bold text-emerald-800">{formatCurrency(equalQualifiedScenario.netProfit)}</div>
+                                                <div className="text-3xl font-bold text-emerald-800">{formatCurrency(equalQualifiedScenario.netProfit - (isAmtDanger ? (currentSpread - amtStats.room) * 0.28 : 0))}</div>
                                             </div>
 
                                             <div className="space-y-1 mb-4 pb-4 border-b border-emerald-200">
@@ -653,6 +655,12 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
 
                                             <div className="space-y-2">
                                                 <div className="text-xs font-bold text-emerald-800 mb-2 uppercase tracking-wide">Tax Breakdown</div>
+                                                {isAmtDanger && (
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <span className="text-amber-700">Est. AMT at Exercise</span>
+                                                        <span className="font-semibold text-amber-600">{formatCurrency((currentSpread - amtStats.room) * 0.28)}</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-700">Federal LTCG</span>
                                                     <span className="font-semibold text-emerald-800">{formatCurrency(equalQualifiedScenario.taxes.fedAmount)}</span>
@@ -665,14 +673,23 @@ export const ISOPlanner: React.FC<ISOPlannerProps> = ({ client, grants, onSavePl
                                                     <span className="text-slate-700">NIIT (3.8%)</span>
                                                     <span className="font-semibold text-emerald-800">{formatCurrency(equalQualifiedScenario.taxes.niitAmount)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center text-sm pt-3 mt-2 border-t border-emerald-200">
-                                                    <span className="text-emerald-800 font-bold">Total Tax</span>
-                                                    <span className="font-bold text-emerald-600 text-lg">{formatCurrency(equalQualifiedScenario.taxes.totalTax)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-xs text-slate-600 bg-emerald-100 p-2 rounded">
-                                                    <span>Effective Tax Rate</span>
-                                                    <span className="font-bold">{formatPercent(equalQualifiedScenario.taxes.totalTax / (equalQualifiedScenario.netProfit + equalQualifiedScenario.taxes.totalTax))}</span>
-                                                </div>
+                                                {(() => {
+                                                    const estimatedAmt = isAmtDanger ? (currentSpread - amtStats.room) * 0.28 : 0;
+                                                    const totalWithAmt = equalQualifiedScenario.taxes.totalTax + estimatedAmt;
+                                                    const netAfterAmt = equalQualifiedScenario.netProfit - estimatedAmt;
+                                                    return (
+                                                        <>
+                                                            <div className="flex justify-between items-center text-sm pt-3 mt-2 border-t border-emerald-200">
+                                                                <span className="text-emerald-800 font-bold">Total Tax</span>
+                                                                <span className="font-bold text-emerald-600 text-lg">{formatCurrency(totalWithAmt)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs text-slate-600 bg-emerald-100 p-2 rounded">
+                                                                <span>Effective Tax Rate</span>
+                                                                <span className="font-bold">{formatPercent(totalWithAmt / (netAfterAmt + totalWithAmt))}</span>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
