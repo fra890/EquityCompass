@@ -1154,10 +1154,10 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
                         <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">12-Month RSU Income</h4>
                     </div>
                     <p className="text-3xl font-bold text-tidemark-navy">
-                        {formatCurrency(upcomingEvents.filter(e => e.grantType === 'RSU' || e.grantType === 'ESPP').reduce((sum, e) => sum + e.grossValue, 0))}
+                        {formatCurrency(upcomingEvents.filter(e => e.grantType === 'RSU').reduce((sum, e) => sum + e.grossValue, 0))}
                     </p>
                     <p className="text-sm text-slate-500 mt-1">
-                        {formatNumber(upcomingEvents.filter(e => e.grantType === 'RSU' || e.grantType === 'ESPP').reduce((sum, e) => sum + e.shares, 0))} shares vesting
+                        {formatNumber(upcomingEvents.filter(e => e.grantType === 'RSU').reduce((sum, e) => sum + e.shares, 0))} shares vesting
                     </p>
                 </div>
             </div>
