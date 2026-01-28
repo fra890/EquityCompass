@@ -298,11 +298,9 @@ export const ClientDetail: React.FC<ClientDetailProps> = ({ client, onBack, onUp
     const now = new Date();
     const yearlyData: Record<number, { shares: number; value: number }> = {};
 
-    const rsuGrants = client.grants.filter(g => g.type === 'RSU');
-    console.log('[RSU Projection] All grants:', client.grants.map(g => ({ id: g.id, type: g.type, company: g.companyName, shares: g.totalShares })));
-    console.log('[RSU Projection] Filtered RSU grants:', rsuGrants.map(g => ({ id: g.id, type: g.type, company: g.companyName, shares: g.totalShares })));
-
-    rsuGrants.forEach(grant => {
+    client.grants
+      .filter(g => g.type === 'RSU')
+      .forEach(grant => {
         const schedule = generateVestingSchedule(grant, client);
         schedule
           .filter(e => new Date(e.date) > now)
