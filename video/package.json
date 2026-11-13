@@ -1,0 +1,33 @@
+{
+  "name": "iso-amt-explainer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ISO / AMT explainer video (Remotion) for Tidemark Financial Partners",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "numbers": "tsx scripts/makeNumbers.ts",
+    "stills": "tsx scripts/renderStills.ts",
+    "render:4x5": "remotion render src/index.ts IsoAmt4x5 out/iso_amt_4x5.mp4 --codec=h264 --crf=18",
+    "render:1x1": "remotion render src/index.ts IsoAmt1x1 out/iso_amt_1x1.mp4 --codec=h264 --crf=18",
+    "render": "npm run numbers && npm run render:4x5 && npm run render:1x1",
+    "music": "bash scripts/makeMusic.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/inter-tight": "^5.3.0",
+    "@remotion/bundler": "^4.0.543",
+    "@remotion/cli": "^4.0.543",
+    "@remotion/renderer": "^4.0.543",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.543"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
