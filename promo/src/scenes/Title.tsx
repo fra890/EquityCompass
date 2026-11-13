@@ -9,7 +9,7 @@ import {color, paperA, T} from '../theme';
 type Pt = [number, number];
 
 const DRAW_AT = 0;
-const DRAW_DUR = 58;
+const DRAW_DUR = 50;
 const STEPS = 4;
 
 // The vesting schedule: flat, then a step up at each vest.

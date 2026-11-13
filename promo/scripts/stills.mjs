@@ -3,14 +3,17 @@ import {execFileSync} from 'node:child_process';
 import {mkdirSync} from 'node:fs';
 
 const beats = [
-	['01-hook', 84],
-	['02-math', 262],
-	['03-card-isos', 320],
-	['04-card-lockup', 390],
-	['05-card-ticker', 470],
-	['06-turn', 552],
-	['07-title', 650],
-	['08-end', 830],
+	['01a-names', 20],
+	['01b-names-hold', 60],
+	['02-if-you-work-here', 136],
+	['03-hook', 214],
+	['04-math', 386],
+	['05-card-isos', 436],
+	['06-card-lockup', 500],
+	['07-card-ticker', 578],
+	['08-turn', 652],
+	['09-title', 738],
+	['10-end', 930],
 ];
 
 mkdirSync('stills', {recursive: true});

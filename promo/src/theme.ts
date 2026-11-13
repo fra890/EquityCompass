@@ -26,13 +26,15 @@ export const font = {
 	mono: "'JetBrains Mono', ui-monospace, monospace",
 } as const;
 
-// Scene timeline, in frames at 30fps. Total 28s.
+// Scene timeline, in frames at 30fps. Total ~31s.
 export const T = {
-	hook: {from: 0, dur: 96},
-	ledger: {from: 96, dur: 180},
-	cards: {from: 276, dur: 210, each: 70},
-	turn: {from: 486, dur: 78},
-	title: {from: 564, dur: 96},
-	end: {from: 660, dur: 180},
-	total: 840,
+	names: {from: 0, dur: 66, each: 6},
+	here: {from: 66, dur: 78},
+	hook: {from: 144, dur: 84},
+	ledger: {from: 228, dur: 168},
+	cards: {from: 396, dur: 192, each: 64},
+	turn: {from: 588, dur: 72},
+	title: {from: 660, dur: 90},
+	end: {from: 750, dur: 190},
+	total: 940,
 } as const;

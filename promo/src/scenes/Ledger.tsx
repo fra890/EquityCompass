@@ -57,7 +57,11 @@ export const Ledger: React.FC = () => {
 						opacity: easeOut(frame, 4, 14),
 					}}
 				>
-					{footnote}
+					{footnote.map((l) => (
+						<div key={l}>
+							<Rich text={l} />
+						</div>
+					))}
 				</div>
 			}
 		>

@@ -5,8 +5,10 @@ import {assets} from './copy';
 import {Grain} from './components/Grain';
 import {Cards} from './scenes/Cards';
 import {EndCard} from './scenes/EndCard';
+import {Here} from './scenes/Here';
 import {Hook} from './scenes/Hook';
 import {Ledger} from './scenes/Ledger';
+import {Names} from './scenes/Names';
 import {Title} from './scenes/Title';
 import {Turn} from './scenes/Turn';
 import {color, T} from './theme';
@@ -15,6 +17,12 @@ export type PromoProps = {hasAudio: boolean};
 
 export const Promo: React.FC<PromoProps> = ({hasAudio}) => (
 	<AbsoluteFill style={{background: color.navy}}>
+		<Sequence name="Names" from={T.names.from} durationInFrames={T.names.dur}>
+			<Names />
+		</Sequence>
+		<Sequence name="If you work here" from={T.here.from} durationInFrames={T.here.dur}>
+			<Here />
+		</Sequence>
 		<Sequence name="Hook" from={T.hook.from} durationInFrames={T.hook.dur}>
 			<Hook />
 		</Sequence>

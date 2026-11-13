@@ -7,6 +7,15 @@
 // Each array entry is one line on screen. Max 8 words per headline.
 
 export const copy = {
+	// Cold open. Plain typeset text only: no logos, wordmarks, brand fonts or
+	// brand colours. Compliance can edit this list freely; the last entry holds.
+	names: ['SpaceX', 'Tesla', 'Anthropic', 'OpenAI', 'Databricks', 'Anduril', 'Stripe', 'Figma', 'Pre-IPO startups'],
+
+	here: {
+		lines: ['If you work here,', 'these decisions may', 'be on your desk.'],
+		after: 'Or will be soon.',
+	},
+
 	hook: {
 		first: ['Your company', 'withheld {22%}', 'on your RSUs.'],
 		second: ['Your bracket', 'is [{35%}].'],
@@ -20,7 +29,11 @@ export const copy = {
 			{label: 'Owed at {35%}', value: 140000},
 		],
 		gap: {label: 'The gap', value: 52000},
-		footnote: 'Hypothetical illustration. Federal only.',
+		footnote: [
+			'Hypothetical illustration. Assumes {35%} federal',
+			'bracket, supplemental withholding at {22%}.',
+			'State tax excluded. Your situation will differ.',
+		],
 	},
 
 	cards: [
@@ -50,7 +63,8 @@ export const copy = {
 		cta: 'Follow along.',
 		credit: 'Frank Alvarez · Financial Consultant',
 		url: 'tidemarkfp.com',
-		disclaimer: ['Educational only. Not investment,', 'tax, or legal advice.'],
+		disclosure:
+			'Tidemark, LLC is an SEC-registered investment adviser. Registration does not imply a certain level of skill or training. For informational purposes only; not investment or tax advice. Not affiliated with or endorsed by any company named. Disclosures: tidemarkfp.com',
 	},
 } as const;
 
