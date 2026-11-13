@@ -13,7 +13,7 @@ export const Backdrop: React.FC = () => {
 		<AbsoluteFill
 			style={{
 				backgroundColor: color.navy,
-				backgroundImage: `radial-gradient(ellipse 85% 48% at ${x}% ${y}%, rgba(0, 98, 152, 0.26), rgba(0, 98, 152, 0) 72%)`,
+				backgroundImage: `radial-gradient(ellipse 120% 62% at ${x}% ${y}%, rgba(0, 98, 152, 0.2), rgba(0, 98, 152, 0) 72%)`,
 			}}
 		/>
 	);

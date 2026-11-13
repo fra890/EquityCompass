@@ -25,7 +25,7 @@ export const Teaser: React.FC<PromoProps> = ({hasAudio}) => (
 			<Here dur={TT.here.dur} afterAt={24} />
 		</Sequence>
 		<Sequence name="Hook" from={TT.hook.from} durationInFrames={TT.hook.dur}>
-			<Hook dur={TT.hook.dur} secondAt={34} />
+			<Hook dur={TT.hook.dur} secondAt={32} />
 		</Sequence>
 		<Sequence name="The gap" from={TT.gap.from} durationInFrames={TT.gap.dur}>
 			<Gap dur={TT.gap.dur} />

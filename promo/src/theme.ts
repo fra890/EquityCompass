@@ -43,10 +43,10 @@ export const T = {
 export const TT = {
 	names: {from: 0, dur: 66, each: 6},
 	here: {from: 66, dur: 66},
-	hook: {from: 132, dur: 78},
-	gap: {from: 210, dur: 90},
-	flash: {from: 300, dur: 48, each: 16},
-	title: {from: 348, dur: 84},
-	end: {from: 432, dur: 150},
-	total: 582,
+	hook: {from: 132, dur: 92},
+	gap: {from: 224, dur: 90},
+	flash: {from: 314, dur: 48, each: 16},
+	title: {from: 362, dur: 84},
+	end: {from: 446, dur: 150},
+	total: 596,
 } as const;

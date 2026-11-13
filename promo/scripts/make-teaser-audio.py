@@ -15,7 +15,7 @@ import numpy as np
 
 SR = 48000
 FPS = 30
-TOTAL = 582 / FPS
+TOTAL = 596 / FPS
 N = int(SR * (TOTAL + 0.05))
 rng = np.random.default_rng(7)
 L = np.zeros(N)
@@ -96,7 +96,7 @@ def pad(freqs, dur, attack, release, bright=900):
 D2, A2, D3, F3, A3, D4, E4, Fs3, Fs4, A4, D5 = 73.42, 110.0, 146.83, 174.61, 220.0, 293.66, 329.63, 185.0, 369.99, 440.0, 587.33
 
 # Timeline (frames), mirroring TT.
-HERE, HOOK, GAP, FLASH, TITLE, END = 66, 132, 210, 300, 348, 432
+HERE, HOOK, GAP, FLASH, TITLE, END = 66, 132, 224, 314, 362, 446
 TITLE_LAND = TITLE + 29
 PANEL = END + 26
 
@@ -115,8 +115,8 @@ add(thump(50), f2s(HERE), 0.55)
 
 # 4. Hook lines land.
 add(thump(58, 0.4), f2s(HOOK + 3), 0.3)
-add(thump(58, 0.4), f2s(HOOK + 34), 0.3)
-add(bell(A4, 1.6), f2s(HOOK + 50), 0.07)
+add(thump(58, 0.4), f2s(HOOK + 32), 0.3)
+add(bell(A4, 1.6), f2s(HOOK + 48), 0.07)
 
 # 5. The gap: ticks run with the count-up, then the number rings.
 count_start, count_len = GAP + 16, 28
