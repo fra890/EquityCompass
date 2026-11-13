@@ -49,6 +49,7 @@ export const copy = {
 		cadence: 'New episodes weekly.',
 		cta: 'Follow along.',
 		credit: 'Frank Alvarez · Financial Consultant',
+		url: 'tidemarkfp.com',
 		disclaimer: ['Educational only. Not investment,', 'tax, or legal advice.'],
 	},
 } as const;

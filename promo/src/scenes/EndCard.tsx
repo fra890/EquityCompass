@@ -82,7 +82,7 @@ export const EndCard: React.FC = () => {
 						position: 'absolute',
 						left: portrait ? marginX : marginX * 0.7,
 						right: portrait ? marginX : marginX * 0.7,
-						top: portrait ? px(84) : 0,
+						top: portrait ? px(64) : 0,
 						bottom: portrait ? undefined : 0,
 						display: 'flex',
 						flexDirection: 'column',
@@ -94,9 +94,13 @@ export const EndCard: React.FC = () => {
 						src={staticFile(assets.logo)}
 						style={{width: logoW, height: logoW / LOGO_RATIO, mixBlendMode: 'multiply'}}
 					/>
-					<div style={{height: px(56)}} />
+					<div style={{height: px(44)}} />
 					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 500, color: color.navy, lineHeight: 1.2}}>
 						{e.credit}
+					</div>
+					<div style={{height: px(8)}} />
+					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 600, color: color.blue, lineHeight: 1.2}}>
+						{e.url}
 					</div>
 					<div style={{height: px(26)}} />
 					<div style={{fontFamily: font.sans, fontSize: px(34), lineHeight: 1.36, color: navyA(0.8)}}>
