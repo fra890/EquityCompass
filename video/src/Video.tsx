@@ -1,7 +1,9 @@
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Sequence, staticFile } from "remotion";
 import { Captions } from "./components/Captions";
 import { Grain, PaperBackground } from "./components/Paper";
+import { MusicBed, SceneWrap } from "./components/SceneWrap";
+import { CAPTIONS_HIDDEN, DISCLOSURE_FIRM_LINE, DISCLOSURE_TEXT } from "./script";
 import { Disclosure } from "./scenes/Disclosure";
 import { EndCard } from "./scenes/EndCard";
 import { Hook } from "./scenes/Hook";
@@ -22,21 +24,7 @@ const SCENE_COMPONENTS: Record<SceneId, React.FC> = {
   intersection: Intersection,
   principle: Principle,
   endcard: EndCard,
-  disclosure: Disclosure,
-};
-
-/** Fade in/out plus the slow camera push on the paper. */
-const SceneWrap: React.FC<{ duration: number; children: React.ReactNode }> = ({ duration, children }) => {
-  const frame = useCurrentFrame();
-  const cl = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-  const opacity = Math.min(
-    interpolate(frame, [0, 8], [0, 1], cl),
-    interpolate(frame, [duration - 7, duration - 1], [1, 0], cl),
-  );
-  const push = interpolate(frame, [0, duration], [1, 1.035], cl);
-  return (
-    <AbsoluteFill style={{ opacity, transform: `scale(${push})`, transformOrigin: "50% 40%" }}>{children}</AbsoluteFill>
-  );
+  disclosure: () => <Disclosure text={DISCLOSURE_TEXT} firmLine={DISCLOSURE_FIRM_LINE} />,
 };
 
 export type VideoProps = {
@@ -58,7 +46,7 @@ export const IsoAmtVideo: React.FC<VideoProps> = ({ voiceover, music, musicVolum
           <SceneWrap duration={duration}>
             <Scene />
           </SceneWrap>
-          <Captions scene={id} />
+          <Captions lines={LINES[id]} hidden={CAPTIONS_HIDDEN[id]} />
           {voiceover
             ? LINES[id].map((l) => (
                 <Sequence key={l.id} from={f(l.at)} layout="none">
@@ -70,17 +58,6 @@ export const IsoAmtVideo: React.FC<VideoProps> = ({ voiceover, music, musicVolum
       );
     })}
     <Grain />
-    {music ? (
-      <Audio
-        src={staticFile("ambient.mp3")}
-        volume={(fr) =>
-          musicVolume *
-          interpolate(fr, [0, 45, TOTAL_FRAMES - 75, TOTAL_FRAMES - 1], [0, 1, 1, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          })
-        }
-      />
-    ) : null}
+    {music ? <MusicBed volume={musicVolume} totalFrames={TOTAL_FRAMES} /> : null}
   </AbsoluteFill>
 );

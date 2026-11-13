@@ -11,7 +11,12 @@
     "render:1x1": "remotion render src/index.ts IsoAmt1x1 out/iso_amt_1x1.mp4 --codec=h264 --crf=18",
     "render": "npm run numbers && npm run render:4x5 && npm run render:1x1",
     "music": "python3 scripts/makeMusic.py",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stills:door": "tsx scripts/renderStills.ts door",
+    "script:door": "tsx scripts/makeDoorScript.ts",
+    "render:door:4x5": "remotion render src/index.ts DoorSticker4x5 out/door_sticker_4x5.mp4 --codec=h264 --crf=18",
+    "render:door:1x1": "remotion render src/index.ts DoorSticker1x1 out/door_sticker_1x1.mp4 --codec=h264 --crf=18",
+    "render:door": "npm run script:door && npm run render:door:4x5 && npm run render:door:1x1"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

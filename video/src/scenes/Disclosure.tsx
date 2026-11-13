@@ -2,10 +2,9 @@ import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { prog, easeOut } from "../anim";
 import { useLayout } from "../components/Stage";
-import { DISCLOSURE_FIRM_LINE, DISCLOSURE_TEXT } from "../script";
 import { C, FONT_BODY } from "../theme";
 
-export const Disclosure: React.FC = () => {
+export const Disclosure: React.FC<{ text: string; firmLine?: string }> = ({ text, firmLine }) => {
   const frame = useCurrentFrame();
   const L = useLayout();
   const p = prog(frame, 0, 0.35, easeOut);
@@ -25,9 +24,9 @@ export const Disclosure: React.FC = () => {
         Disclosure
       </div>
       <div style={{ fontFamily: FONT_BODY, fontWeight: 600, fontSize: L.tall ? 46 : 42, lineHeight: 1.34, color: C.ink }}>
-        {DISCLOSURE_TEXT}
+        {text}
       </div>
-      {DISCLOSURE_FIRM_LINE ? (
+      {firmLine ? (
         <div
           style={{
             fontFamily: FONT_BODY,
@@ -40,7 +39,7 @@ export const Disclosure: React.FC = () => {
             borderTop: `3px solid ${C.ink}`,
           }}
         >
-          {DISCLOSURE_FIRM_LINE}
+          {firmLine}
         </div>
       ) : null}
     </AbsoluteFill>

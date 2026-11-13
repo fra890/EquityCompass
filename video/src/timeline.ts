@@ -10,7 +10,8 @@
  * To tweak pacing: change LEAD / GAP / TAIL, or a scene's `min` / `extra`.
  */
 import { SCENE_IDS, type SceneId } from "./sceneIds";
-import { SCRIPT, stripMarks } from "./script";
+import { buildTimeline } from "./lib/buildTimeline";
+import { SCRIPT } from "./script";
 import voDurations from "./voDurations.json";
 
 export type { SceneId };
@@ -33,46 +34,24 @@ export const SCENE_PACING: Record<SceneId, { min: number; extra: number }> = {
   disclosure: { min: 4.4, extra: 0 }, // hold at least 4s
 };
 
-/** Seconds a line takes to say: the voice clip if there is one, else an estimate. */
-const lineSeconds = (id: string, text: string) =>
-  (voDurations as Record<string, number>)[id] ?? Math.max(1.6, stripMarks(text).length / 16);
+const built = buildTimeline(SCENE_IDS, SCRIPT, SCENE_PACING, {
+  fps: FPS,
+  lead: LEAD,
+  gap: GAP,
+  tail: TAIL,
+  durations: voDurations as Record<string, number>,
+});
 
-export type TimedLine = { id: string; text: string; hero?: boolean; at: number; to: number; speak: number };
-
-const round1 = (n: number) => Math.ceil(n * 10) / 10;
-export const f = (seconds: number) => Math.round(seconds * FPS);
-
-const built = (() => {
-  let cursor = 0;
-  const lines = {} as Record<SceneId, TimedLine[]>;
-  const timing = {} as Record<SceneId, { from: number; duration: number; startSec: number; seconds: number }>;
-  for (const id of SCENE_IDS) {
-    let t = LEAD;
-    const timed: TimedLine[] = SCRIPT[id].map((l, i) => {
-      const speak = lineSeconds(`${id}_${i}`, l.text);
-      const line = { id: `${id}_${i}`, ...l, at: t, to: t + speak + GAP, speak };
-      t += speak + GAP;
-      return line;
-    });
-    const seconds = round1(Math.max(SCENE_PACING[id].min, t - GAP + TAIL) + SCENE_PACING[id].extra);
-    if (timed.length) timed[timed.length - 1].to = seconds;
-    lines[id] = timed;
-    timing[id] = { from: f(cursor), duration: f(seconds), startSec: cursor, seconds };
-    cursor = Math.round((cursor + seconds) * 10) / 10;
-  }
-  return { lines, timing, total: cursor };
-})();
-
+export const f = built.f;
 export const LINES = built.lines;
 export const SCENE_TIMING = built.timing;
-export const SCENES = SCENE_IDS.map((id) => ({ id, seconds: built.timing[id].seconds }));
-export const TOTAL_SECONDS = built.total;
-export const TOTAL_FRAMES = f(TOTAL_SECONDS);
-
+export const SCENES = built.scenes;
+export const TOTAL_SECONDS = built.totalSeconds;
+export const TOTAL_FRAMES = built.totalFrames;
 /** Scene-relative start time (seconds) of narration line `i`; scenes animate from these. */
-export const cue = (scene: SceneId, i: number) => LINES[scene][i].at;
+export const cue = built.cue;
 /** Scene length in seconds. */
-export const sceneSeconds = (scene: SceneId) => SCENE_TIMING[scene].seconds;
+export const sceneSeconds = built.sceneSeconds;
 
 /**
  * Scene-relative second(s) used for each scene's review still, counted back

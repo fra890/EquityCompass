@@ -1,11 +1,48 @@
-# ISO / AMT explainer video
+# Explainer videos (Remotion)
 
-A ~90 second animated explainer (Remotion, TypeScript) for native LinkedIn posting.
-Captions are burned in and a soft music bed plays underneath; there is no narration.
+Two animated explainers for native LinkedIn posting, sharing one set of style components
+(paper background, highlighter swipe, caption system, end card, disclosure card).
+Captions are burned in; there is no narration.
 
-**DRAFT. Advertising under the SEC Marketing Rule: requires CCO approval before use.**
+1. **ISO / AMT** (`IsoAmt4x5`, `IsoAmt1x1`) — source in `src/`, ~90s.
+2. **Loaded to the door sticker** (`DoorSticker4x5`, `DoorSticker1x1`) — source in `src/doorSticker/`, ~90s.
 
-## Deliverables
+**DRAFTS. Advertising under the SEC Marketing Rule: each requires CCO approval before use.**
+
+## Loaded to the door sticker
+
+| File | What |
+| --- | --- |
+| `out/door_sticker_4x5.mp4` | 1080x1350, 30fps, H.264. |
+| `out/door_sticker_1x1.mp4` | 1080x1080 variant, same scenes. |
+| `out/stills/door_sticker_*.png` | One PNG per scene per format (the truck has two: `10a`, `10b`). |
+| `voiceover_script_door_sticker.txt` | Timed caption lines, for recording narration later. |
+
+```bash
+cd video
+npm install
+npm run stills:door        # review stills -> out/stills/door_sticker_*.png
+npm run render:door:4x5    # out/door_sticker_4x5.mp4 (silent)
+npm run render:door:1x1    # out/door_sticker_1x1.mp4 (silent)
+npm run render:door        # script + both MP4s
+npm run script:door        # rewrite voiceover_script_door_sticker.txt
+
+# with the music bed (off by default for this video):
+npm run render:door:4x5 -- --props='{"music":true,"musicVolume":0.6}'
+```
+
+| To change | Edit |
+| --- | --- |
+| Pacing | `src/doorSticker/timeline.ts` (`CHARS_PER_SECOND`, `LEAD`, `GAP`, `TAIL`, `SCENE_PACING`) |
+| Captions, the quote, cost lines, disclosure | `src/doorSticker/script.ts` |
+| Any figure on screen | `src/doorSticker/script.ts` (`FIG`). Figures are shown as given; nothing is summed or derived. |
+| A scene's visuals | `src/doorSticker/scenes/<Scene>.tsx` |
+
+The delivered MP4s were rendered with the music bed on. Run the plain render commands for a silent cut.
+
+## ISO / AMT
+
+### Deliverables
 
 | File | What |
 | --- | --- |
@@ -15,14 +52,14 @@ Captions are burned in and a soft music bed plays underneath; there is no narrat
 | `numbers.md` | Every computed value, exact and as rounded on screen. |
 | `voiceover_script.txt` | Timed narration lines, for recording your own voice. |
 
-## Commands
+### Commands
 
 ```bash
 cd video
 npm install
 
 npm run numbers      # print the numbers table; rewrite numbers.md + voiceover_script.txt
-npm run stills       # one PNG per scene -> out/stills/   (npm run stills -- trap  for one scene)
+npm run stills       # one PNG per scene -> out/stills/   (npm run stills -- iso trap  for one scene)
 npm run render:4x5   # out/iso_amt_4x5.mp4
 npm run render:1x1   # out/iso_amt_1x1.mp4
 npm run render       # numbers + both MP4s
@@ -52,7 +89,7 @@ If Remotion cannot download its own browser, point it at a local Chrome Headless
 export REMOTION_CHROME=/path/to/chrome-headless-shell
 ```
 
-## Where to change things
+### Where to change things
 
 | To change | Edit |
 | --- | --- |

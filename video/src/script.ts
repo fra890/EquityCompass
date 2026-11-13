@@ -1,15 +1,15 @@
 import { D } from "./numbers";
+import type { Line } from "./lib/buildTimeline";
 import type { SceneId } from "./sceneIds";
+
+export { stripMarks } from "./lib/buildTimeline";
+export type { Line };
 
 /**
  * Narration / burned-in captions, in order. Timing is worked out in
  * timeline.ts from the narration clips. Wrap a phrase in [[double brackets]]
  * to highlight it. Numbers come from the tax model via `D`.
  */
-/** `hero: true` = the line is already set as the scene's large on-screen text, so no caption box. */
-/** `hero: true` = the line is already the scene's large on-screen text, so no caption box. */
-export type Line = { text: string; hero?: boolean };
-
 export const SCRIPT: Record<SceneId, Line[]> = {
   hook: [
     { text: "They held SpaceX options for years. Then IPO talk started.", hero: true },
@@ -62,4 +62,3 @@ export const CAPTIONS_HIDDEN: Partial<Record<SceneId, boolean>> = {
   endcard: true,
 };
 
-export const stripMarks = (t: string) => t.replace(/\[\[|\]\]/g, "");

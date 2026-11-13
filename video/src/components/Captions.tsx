@@ -1,9 +1,8 @@
 import React from "react";
-import { useCurrentFrame } from "remotion";
+import { useCurrentFrame, useVideoConfig } from "remotion";
 import { prog, easeOut } from "../anim";
-import { CAPTIONS_HIDDEN } from "../script";
 import { C, FONT_BODY } from "../theme";
-import { FPS, LINES, type SceneId } from "../timeline";
+import type { TimedLine } from "../lib/buildTimeline";
 import { useLayout } from "./Stage";
 
 const renderMarked = (text: string) =>
@@ -18,12 +17,13 @@ const renderMarked = (text: string) =>
   );
 
 /** Burned-in caption for the current narration line, in the lower third. */
-export const Captions: React.FC<{ scene: SceneId }> = ({ scene }) => {
+export const Captions: React.FC<{ lines: TimedLine[]; hidden?: boolean }> = ({ lines, hidden }) => {
   const frame = useCurrentFrame();
   const L = useLayout();
-  if (CAPTIONS_HIDDEN[scene]) return null;
-  const t = frame / FPS;
-  const line = LINES[scene].find((l) => !l.hero && t >= l.at && t < l.to);
+  const { fps } = useVideoConfig();
+  if (hidden) return null;
+  const t = frame / fps;
+  const line = lines.find((l) => !l.hero && t >= l.at && t < l.to);
   if (!line) return null;
   const pIn = prog(frame, line.at, line.at + 0.22, easeOut);
   const pOut = 1 - prog(frame, line.to - 0.12, line.to, easeOut);
