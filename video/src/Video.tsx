@@ -40,9 +40,9 @@ const SceneWrap: React.FC<{ duration: number; children: React.ReactNode }> = ({ 
 };
 
 export type VideoProps = {
-  /** Synthetic narration (public/vo). On by default; --props='{"voiceover":false}' for a silent cut. */
+  /** Narration clips (public/vo). Off by default; --props='{"voiceover":true}' to include them. */
   voiceover: boolean;
-  /** Soft ambient music bed. Off by default; turn on with --props='{"music":true}'. */
+  /** Soft ambient music bed. On by default; --props='{"music":false}' for a silent cut. */
   music: boolean;
   musicVolume: number;
 };

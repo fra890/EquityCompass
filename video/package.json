@@ -10,7 +10,7 @@
     "render:4x5": "remotion render src/index.ts IsoAmt4x5 out/iso_amt_4x5.mp4 --codec=h264 --crf=18",
     "render:1x1": "remotion render src/index.ts IsoAmt1x1 out/iso_amt_1x1.mp4 --codec=h264 --crf=18",
     "render": "npm run numbers && npm run render:4x5 && npm run render:1x1",
-    "music": "bash scripts/makeMusic.sh",
+    "music": "python3 scripts/makeMusic.py",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
