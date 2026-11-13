@@ -1,6 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Img, staticFile, useCurrentFrame} from 'remotion';
-import {assets, copy} from '../copy';
+import {assets, copy, teaser} from '../copy';
 import {Headline, MaskLine, Num, Tag} from '../components/Type';
 import {useLayout} from '../layout';
 import {easeOut} from '../motion';
@@ -8,14 +8,15 @@ import {color, font, navyA, paperA} from '../theme';
 
 const LOGO_RATIO = 1801 / 289;
 
-export const EndCard: React.FC = () => {
+export const EndCard: React.FC<{variant?: 'promo' | 'teaser'}> = ({variant = 'promo'}) => {
+	const isTeaser = variant === 'teaser';
 	const frame = useCurrentFrame();
 	const {width, height, portrait, safeTop, safeBottom, marginX, px} = useLayout();
 	const e = copy.end;
 
 	const epAt = (i: number) => 6 + i * 12;
-	const ctaAt = 50;
-	const panelAt = 72;
+	const ctaAt = isTeaser ? 4 : 50;
+	const panelAt = isTeaser ? 26 : 72;
 	const panelP = easeOut(frame, panelAt, 18);
 
 	// Portrait: an off-white panel rises from the bottom. Wide: it enters from the right.
@@ -37,14 +38,18 @@ export const EndCard: React.FC = () => {
 					bottom: portrait ? height - panelTop : safeBottom,
 					display: 'flex',
 					flexDirection: 'column',
-					justifyContent: portrait ? 'flex-start' : 'center',
+					justifyContent: portrait && !isTeaser ? 'flex-start' : 'center',
 				}}
 			>
-				<Tag size={px(32)} at={0} tone={paperA(0.72)}>
-					{e.tag}
-				</Tag>
-				<div style={{height: px(22)}} />
-				{e.episodes.map((ep, i) => (
+				{isTeaser ? null : (
+					<>
+						<Tag size={px(32)} at={0} tone={paperA(0.72)}>
+							{e.tag}
+						</Tag>
+						<div style={{height: px(22)}} />
+					</>
+				)}
+				{(isTeaser ? [] : e.episodes).map((ep, i) => (
 					<div
 						key={ep.n}
 						style={{
@@ -68,12 +73,12 @@ export const EndCard: React.FC = () => {
 						</MaskLine>
 					</div>
 				))}
-				<div style={{height: px(44)}} />
-				<div style={{fontFamily: font.sans, fontSize: px(52), lineHeight: 1.2, color: paperA(0.85)}}>
-					<MaskLine at={ctaAt}>{e.cadence}</MaskLine>
+				{isTeaser ? null : <div style={{height: px(44)}} />}
+				<div style={{fontFamily: font.sans, fontSize: px(isTeaser ? 56 : 52), lineHeight: 1.2, color: paperA(0.85)}}>
+					<MaskLine at={ctaAt}>{isTeaser ? teaser.end.cadence : e.cadence}</MaskLine>
 				</div>
-				<div style={{height: px(6)}} />
-				<Headline lines={[e.cta]} at={ctaAt + 4} size={px(120)} />
+				<div style={{height: px(isTeaser ? 18 : 6)}} />
+				<Headline lines={[isTeaser ? teaser.end.cta : e.cta]} at={ctaAt + 4} size={px(isTeaser ? 150 : 120)} />
 			</div>
 
 			<div style={{position: 'absolute', background: color.paper, ...panelStyle}}>

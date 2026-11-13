@@ -38,3 +38,15 @@ export const T = {
 	end: {from: 750, dur: 190},
 	total: 940,
 } as const;
+
+// Teaser cut: opens the loop, withholds the explanation. ~19s.
+export const TT = {
+	names: {from: 0, dur: 66, each: 6},
+	here: {from: 66, dur: 66},
+	hook: {from: 132, dur: 78},
+	gap: {from: 210, dur: 90},
+	flash: {from: 300, dur: 48, each: 16},
+	title: {from: 348, dur: 84},
+	end: {from: 432, dur: 150},
+	total: 582,
+} as const;

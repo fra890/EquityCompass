@@ -68,6 +68,22 @@ export const copy = {
 	},
 } as const;
 
+// Teaser-only copy. Everything else in the teaser reuses the lines above.
+export const teaser = {
+	gap: {
+		tag: 'The math',
+		lead: 'On a {$400,000} RSU vest',
+		label: 'The gap',
+		value: 52000,
+	},
+	// Hard cuts, same rhythm as the cold open. Topics only, no answers.
+	flashes: ['ISOs and AMT.', 'Lockup dates.', 'One ticker.'],
+	end: {
+		cadence: 'The series starts soon.',
+		cta: 'Follow along.',
+	},
+} as const;
+
 export const assets = {
 	logo: 'tidemark-logo.jpg', // 1801x289. Never recoloured or stretched.
 	audio: 'audio/promo.mp3', // optional

@@ -5,6 +5,8 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "stills": "node scripts/stills.mjs",
+    "stills:teaser": "node scripts/stills.mjs Teaser",
+    "render:teaser": "remotion render src/index.ts Teaser out/fully-vested-teaser.mp4 --codec h264 --pixel-format yuv420p --crf 16",
     "render": "remotion render src/index.ts Promo out/fully-vested-promo.mp4 --codec h264 --pixel-format yuv420p --crf 16"
   },
   "dependencies": {

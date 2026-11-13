@@ -45,7 +45,7 @@ const partial = (pts: Pt[], d: number): Pt[] => {
 	return out;
 };
 
-export const Title: React.FC = () => {
+export const Title: React.FC<{dur?: number}> = ({dur = T.title.dur}) => {
 	const frame = useCurrentFrame();
 	const {width, height, portrait, safeTop, marginX, px} = useLayout();
 
@@ -79,7 +79,7 @@ export const Title: React.FC = () => {
 	});
 
 	return (
-		<AbsoluteFill style={{opacity: fadeOut(frame, T.title.dur)}}>
+		<AbsoluteFill style={{opacity: fadeOut(frame, dur)}}>
 			<svg width={width} height={height} style={{position: 'absolute', inset: 0}}>
 				<defs>
 					<linearGradient id="vest-fill" x1="0" y1={yTop} x2="0" y2={height} gradientUnits="userSpaceOnUse">

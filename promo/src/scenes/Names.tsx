@@ -6,10 +6,13 @@ import {color, font, T} from '../theme';
 
 // Rapid-fire cold open. Hard cuts, one name at a time, identical setting for
 // every name: plain Source Serif 4, off-white on navy. The last entry holds.
-export const Names: React.FC = () => {
+export const Names: React.FC<{items?: readonly string[]; each?: number}> = ({
+	items = copy.names,
+	each = T.names.each,
+}) => {
 	const frame = useCurrentFrame();
 	const {safeTop, safeBottom, marginX, px} = useLayout();
-	const i = Math.min(Math.floor(frame / T.names.each), copy.names.length - 1);
+	const i = Math.min(Math.floor(frame / each), items.length - 1);
 	return (
 		<AbsoluteFill
 			style={{
@@ -33,7 +36,7 @@ export const Names: React.FC = () => {
 					marginBottom: '4%',
 				}}
 			>
-				{copy.names[i]}
+				{items[i]}
 			</div>
 		</AbsoluteFill>
 	);
