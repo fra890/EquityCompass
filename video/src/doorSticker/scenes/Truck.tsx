@@ -55,8 +55,8 @@ export const Truck: React.FC = () => {
   const tremble = hovering ? Math.sin(frame * 1.3) * 1.6 * hoverIn * (1 - away) : 0;
   const needle = lerp(-90, LIMIT_ANGLE, load) + tremble;
   const sink = load * 16;
-  const hx = lerp(270, 560, away);
-  const hy = lerp(-140, BED_TOP - 84 - 84 - 46, hoverIn) - away * 260 + Math.sin(frame / 5) * 5 * (1 - away);
+  const hx = lerp(270, 430, away);
+  const hy = lerp(-140, BED_TOP - 84 - 84 - 46, hoverIn) - away * 120 + Math.sin(frame / 5) * 5 * (1 - away);
   return (
     <Stage kicker={KICKER} title={<>Loaded to the <Highlight at={0.9}>door sticker.</Highlight></>}>
       <line x1={20} y1={GROUND} x2={980} y2={GROUND} stroke={C.ink} strokeWidth={4} strokeLinecap="round" />
@@ -126,7 +126,7 @@ export const Truck: React.FC = () => {
 
       {/* one more box: hovers, then is pulled away */}
       {hoverIn > 0 ? (
-        <g opacity={1 - prog(frame, end - 1.0, end - 0.4)}>
+        <g opacity={1 - prog(frame, c1 + 1.7, c1 + 2.4)}>
           <g opacity={(1 - away) * 0.9}>
             <Box x={270} y={BED_TOP - 84 - 84 + sink} dashed />
           </g>
