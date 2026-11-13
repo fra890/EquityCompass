@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, interpolate, Sequence, staticFile} from 'remotion';
 import './fonts';
 import {assets} from './copy';
+import {Backdrop} from './components/Backdrop';
 import {Grain} from './components/Grain';
 import {Cards} from './scenes/Cards';
 import {EndCard} from './scenes/EndCard';
@@ -17,6 +18,7 @@ export type PromoProps = {hasAudio: boolean};
 
 export const Promo: React.FC<PromoProps> = ({hasAudio}) => (
 	<AbsoluteFill style={{background: color.navy}}>
+		<Backdrop />
 		<Sequence name="Names" from={T.names.from} durationInFrames={T.names.dur}>
 			<Names />
 		</Sequence>

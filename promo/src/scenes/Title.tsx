@@ -89,6 +89,8 @@ export const Title: React.FC<{dur?: number}> = ({dur = T.title.dur}) => {
 				</defs>
 				<polygon points={area} fill="url(#vest-fill)" />
 				<polyline points={line} fill="none" stroke={color.paper} strokeWidth={px(4)} strokeLinejoin="miter" />
+				{p < 1 ? <circle cx={tip[0]} cy={tip[1]} r={px(26)} fill={paperA(0.18)} /> : null}
+				{p < 1 ? <circle cx={tip[0]} cy={tip[1]} r={px(7)} fill={color.paper} /> : null}
 				{vests.map(({pt, on}, i) =>
 					on ? <circle key={i} cx={pt[0]} cy={pt[1]} r={px(9)} fill={color.paper} /> : null,
 				)}

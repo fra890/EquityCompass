@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, interpolate, Sequence, staticFile} from 'remotion';
 import './fonts';
 import {assets, teaser} from './copy';
+import {Backdrop} from './components/Backdrop';
 import {Grain} from './components/Grain';
 import {PromoProps} from './Promo';
 import {EndCard} from './scenes/EndCard';
@@ -16,6 +17,7 @@ import {color, TT} from './theme';
 // ledger walk-through and no episode list; those are the reason to follow.
 export const Teaser: React.FC<PromoProps> = ({hasAudio}) => (
 	<AbsoluteFill style={{background: color.navy}}>
+		<Backdrop />
 		<Sequence name="Names" from={TT.names.from} durationInFrames={TT.names.dur}>
 			<Names each={TT.names.each} />
 		</Sequence>
@@ -42,9 +44,9 @@ export const Teaser: React.FC<PromoProps> = ({hasAudio}) => (
 
 		{hasAudio ? (
 			<Audio
-				src={staticFile(assets.audio)}
+				src={staticFile(assets.teaserAudio)}
 				volume={(f) =>
-					0.3 *
+					0.6 *
 					interpolate(f, [0, 12, TT.total - 30, TT.total], [0, 1, 1, 0], {
 						extrapolateLeft: 'clamp',
 						extrapolateRight: 'clamp',

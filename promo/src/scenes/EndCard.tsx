@@ -25,6 +25,11 @@ export const EndCard: React.FC<{variant?: 'promo' | 'teaser'}> = ({variant = 'pr
 		? {left: 0, right: 0, top: panelTop, bottom: 0, transform: `translateY(${(1 - panelP) * 100}%)`}
 		: {top: 0, bottom: 0, right: 0, width: width * 0.44, transform: `translateX(${(1 - panelP) * 100}%)`};
 	const panelInnerW = portrait ? width - marginX * 2 : width * 0.44 - marginX * 1.4;
+	// Panel contents settle in one after another once the panel has landed.
+	const rise = (i: number): React.CSSProperties => {
+		const p = easeOut(frame, panelAt + 10 + i * 4, 14);
+		return {opacity: p, transform: `translateY(${(1 - p) * px(14)}px)`};
+	};
 	const logoW = Math.min(panelInnerW, px(600));
 
 	return (
@@ -95,20 +100,22 @@ export const EndCard: React.FC<{variant?: 'promo' | 'teaser'}> = ({variant = 'pr
 					}}
 				>
 					{/* Logo at its native aspect ratio. Multiply only drops the JPEG's white box onto the off-white panel. */}
-					<Img
-						src={staticFile(assets.logo)}
-						style={{width: logoW, height: logoW / LOGO_RATIO, mixBlendMode: 'multiply'}}
-					/>
+					<div style={rise(0)}>
+						<Img
+							src={staticFile(assets.logo)}
+							style={{width: logoW, height: logoW / LOGO_RATIO, mixBlendMode: 'multiply', display: 'block'}}
+						/>
+					</div>
 					<div style={{height: px(30)}} />
-					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 500, color: color.navy, lineHeight: 1.2}}>
+					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 500, color: color.navy, lineHeight: 1.2, ...rise(1)}}>
 						{e.credit}
 					</div>
 					<div style={{height: px(4)}} />
-					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 600, color: color.blue, lineHeight: 1.2}}>
+					<div style={{fontFamily: font.sans, fontSize: px(44), fontWeight: 600, color: color.blue, lineHeight: 1.2, ...rise(2)}}>
 						{e.url}
 					</div>
 					<div style={{height: px(20)}} />
-					<div style={{fontFamily: font.sans, fontSize: px(32), lineHeight: 1.3, color: navyA(0.85), textWrap: 'pretty'}}>
+					<div style={{fontFamily: font.sans, fontSize: px(32), lineHeight: 1.3, color: navyA(0.85), textWrap: 'pretty', ...rise(3)}}>
 						{e.disclosure}
 					</div>
 				</div>

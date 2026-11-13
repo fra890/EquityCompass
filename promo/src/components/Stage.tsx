@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {useLayout} from '../layout';
 import {fadeOut} from '../motion';
 
@@ -14,6 +14,8 @@ export const Stage: React.FC<{
 }> = ({dur, header, footer, children, align = 'center'}) => {
 	const frame = useCurrentFrame();
 	const {safeTop, safeBottom, marginX} = useLayout();
+	// A slow, barely-there push while the card is held. Never a punch.
+	const push = interpolate(frame, [0, Math.min(dur, 240)], [1, 1.02], {extrapolateRight: 'clamp'});
 	return (
 		<AbsoluteFill style={{opacity: fadeOut(frame, dur)}}>
 			<div
@@ -35,6 +37,8 @@ export const Stage: React.FC<{
 						flexDirection: 'column',
 						justifyContent: align === 'center' ? 'center' : 'flex-start',
 						paddingBottom: align === 'center' ? '4%' : 0,
+						transform: `scale(${push})`,
+						transformOrigin: 'left 45%',
 					}}
 				>
 					{children}

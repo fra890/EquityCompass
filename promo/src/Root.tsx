@@ -5,8 +5,8 @@ import {Promo, PromoProps} from './Promo';
 import {Teaser} from './Teaser';
 import {FORMAT, FPS, SIZES, T, TT} from './theme';
 
-const audioProps = () => ({
-	props: {hasAudio: getStaticFiles().some((f) => f.name === assets.audio)},
+const audioProps = (file: string) => () => ({
+	props: {hasAudio: getStaticFiles().some((f) => f.name === file)},
 });
 
 export const Root: React.FC = () => (
@@ -20,7 +20,7 @@ export const Root: React.FC = () => (
 		height={SIZES[FORMAT].height}
 		defaultProps={{hasAudio: false} satisfies PromoProps}
 		// Audio is optional: only mounted if public/audio/promo.mp3 exists.
-		calculateMetadata={audioProps}
+		calculateMetadata={audioProps(assets.audio)}
 	/>
 	<Composition
 		id="Teaser"
@@ -30,7 +30,7 @@ export const Root: React.FC = () => (
 		width={SIZES[FORMAT].width}
 		height={SIZES[FORMAT].height}
 		defaultProps={{hasAudio: false} satisfies PromoProps}
-		calculateMetadata={audioProps}
+		calculateMetadata={audioProps(assets.teaserAudio)}
 	/>
 	</>
 );

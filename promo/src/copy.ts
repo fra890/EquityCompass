@@ -86,5 +86,6 @@ export const teaser = {
 
 export const assets = {
 	logo: 'tidemark-logo.jpg', // 1801x289. Never recoloured or stretched.
-	audio: 'audio/promo.mp3', // optional
+	audio: 'audio/promo.mp3', // optional bed for the full promo
+	teaserAudio: 'audio/teaser.mp3', // bed for the teaser (see scripts/make-teaser-audio.py)
 } as const;
