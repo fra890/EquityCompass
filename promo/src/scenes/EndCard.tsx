@@ -1,6 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Img, staticFile, useCurrentFrame} from 'remotion';
-import {assets, copy, teaser} from '../copy';
+import {assets, copy, teaser, trailer} from '../copy';
 import {Headline, MaskLine, Num, Tag} from '../components/Type';
 import {useLayout} from '../layout';
 import {easeOut} from '../motion';
@@ -8,8 +8,10 @@ import {color, font, navyA, paperA} from '../theme';
 
 const LOGO_RATIO = 1801 / 289;
 
-export const EndCard: React.FC<{variant?: 'promo' | 'teaser'}> = ({variant = 'promo'}) => {
-	const isTeaser = variant === 'teaser';
+export const EndCard: React.FC<{variant?: 'promo' | 'teaser' | 'trailer'}> = ({variant = 'promo'}) => {
+	// Teaser and trailer share the short layout: no episode list.
+	const isTeaser = variant !== 'promo';
+	const short = variant === 'trailer' ? trailer.end : teaser.end;
 	const frame = useCurrentFrame();
 	const {width, height, portrait, safeTop, safeBottom, marginX, px} = useLayout();
 	const e = copy.end;
@@ -80,10 +82,18 @@ export const EndCard: React.FC<{variant?: 'promo' | 'teaser'}> = ({variant = 'pr
 				))}
 				{isTeaser ? null : <div style={{height: px(44)}} />}
 				<div style={{fontFamily: font.sans, fontSize: px(isTeaser ? 56 : 52), lineHeight: 1.2, color: paperA(0.85)}}>
-					<MaskLine at={ctaAt}>{isTeaser ? teaser.end.cadence : e.cadence}</MaskLine>
+					<MaskLine at={ctaAt}>{isTeaser ? short.cadence : e.cadence}</MaskLine>
 				</div>
 				<div style={{height: px(isTeaser ? 18 : 6)}} />
-				<Headline lines={[isTeaser ? teaser.end.cta : e.cta]} at={ctaAt + 4} size={px(isTeaser ? 150 : 120)} />
+				<Headline lines={[isTeaser ? short.cta : e.cta]} at={ctaAt + 4} size={px(isTeaser ? 150 : 120)} />
+				{variant === 'trailer' ? (
+					<>
+						<div style={{height: px(30)}} />
+						<div style={{fontFamily: font.sans, fontSize: px(52), fontWeight: 500, lineHeight: 1.2, color: color.paper}}>
+							<MaskLine at={ctaAt + 12}>{trailer.end.where}</MaskLine>
+						</div>
+					</>
+				) : null}
 			</div>
 
 			<div style={{position: 'absolute', background: color.paper, ...panelStyle}}>

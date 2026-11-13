@@ -21,6 +21,25 @@ const sets = {
 			['10-end', 930],
 		],
 	},
+	Trailer: {
+		dir: 'stills/trailer',
+		beats: [
+			['01-names-hold', 60],
+			['02-if-you-work-here', 128],
+			['03-on-paper', 250],
+			['04-rsu', 264 + 70],
+			['05-iso', 348 + 70],
+			['06-nqso', 432 + 70],
+			['07-concentration', 516 + 70],
+			['08-divest', 600 + 70],
+			['09-location', 684 + 70],
+			['10-retire', 768 + 70],
+			['11-human', 852 + 84],
+			['12-turn', 952 + 66],
+			['13-title', 1030 + 78],
+			['14-end', 1280],
+		],
+	},
 	Teaser: {
 		dir: 'stills/teaser',
 		beats: [

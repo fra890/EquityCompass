@@ -84,8 +84,51 @@ export const teaser = {
 	},
 } as const;
 
+// Series trailer copy. Reuses names, here, title and the end-card credit and
+// disclosure from above.
+export const trailer = {
+	paper: {
+		tag: 'On paper',
+		lead: 'Your equity, on paper',
+		value: 1240000,
+		lines: ['Nobody handed you', 'the [manual].'],
+		footnote: 'Hypothetical illustration.',
+	},
+	// One chapter per topic. `id` picks the diagram in scenes/Vignettes.tsx.
+	chapters: [
+		{id: 'rsu', tag: 'RSUs', lines: ['Withholding is not', 'your tax bill.']},
+		{id: 'iso', tag: 'ISOs and AMT', lines: ['Exercise now.', 'AMT can follow', 'in April.']},
+		{id: 'nqso', tag: 'NQSOs', lines: ['Taxed as income', 'the day you exercise.']},
+		{id: 'concentration', tag: 'Concentration', lines: ['One ticker. Most', 'of your net worth.']},
+		{id: 'divest', tag: 'Divestment', lines: ['Selling is a schedule,', 'not a moment.']},
+		{id: 'location', tag: 'Tax-aware investing', lines: ['Where you hold it', 'matters.']},
+		{id: 'retire', tag: 'Early retirement', lines: ['Work optional. What', 'does the math require?']},
+		{id: 'human', tag: 'The human side', lines: ['And what sudden', 'wealth does', 'to a person.']},
+	],
+	// Labels inside the diagrams.
+	labels: {
+		rsu: {withheld: 'Withheld', owed: 'Owed', gap: 'The gap', a: '22%', b: '35%', note: 'Hypothetical illustration. Federal only.'},
+		iso: {exercise: 'Exercise', yearEnd: 'Year end', april: 'April', bill: 'AMT'},
+		nqso: {strike: 'Strike price', market: 'Market price', spread: ['Taxed as', 'income']},
+		concentration: {one: 'One stock', rest: 'Everything else'},
+		divest: {quarters: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'], sold: 'Sold', held: 'Held'},
+		location: {boxes: ['Taxable', 'Tax-deferred', 'Tax-free']},
+		retire: {ages: ['40', '45', '50', '55', '60', '65'], marker: 'Work optional?'},
+	},
+	turn: {
+		first: ['Eight decisions.', 'One series.'],
+		second: ['Each one,', 'by the [numbers].'],
+	},
+	end: {
+		cadence: 'New episodes weekly.',
+		cta: 'Follow along.',
+		where: 'YouTube · LinkedIn',
+	},
+} as const;
+
 export const assets = {
 	logo: 'tidemark-logo.jpg', // 1801x289. Never recoloured or stretched.
 	audio: 'audio/promo.mp3', // optional bed for the full promo
+	trailerAudio: 'audio/trailer.mp3', // bed for the trailer (see scripts/make-trailer-audio.py)
 	teaserAudio: 'audio/teaser.mp3', // bed for the teaser (see scripts/make-teaser-audio.py)
 } as const;

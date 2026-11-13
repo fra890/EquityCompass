@@ -3,7 +3,8 @@ import {Composition, getStaticFiles} from 'remotion';
 import {assets} from './copy';
 import {Promo, PromoProps} from './Promo';
 import {Teaser} from './Teaser';
-import {FORMAT, FPS, SIZES, T, TT} from './theme';
+import {Trailer} from './Trailer';
+import {FORMAT, FPS, SIZES, T, TR, TT} from './theme';
 
 const audioProps = (file: string) => () => ({
 	props: {hasAudio: getStaticFiles().some((f) => f.name === file)},
@@ -31,6 +32,16 @@ export const Root: React.FC = () => (
 		height={SIZES[FORMAT].height}
 		defaultProps={{hasAudio: false} satisfies PromoProps}
 		calculateMetadata={audioProps(assets.teaserAudio)}
+	/>
+	<Composition
+		id="Trailer"
+		component={Trailer}
+		durationInFrames={TR.total}
+		fps={FPS}
+		width={SIZES[FORMAT].width}
+		height={SIZES[FORMAT].height}
+		defaultProps={{hasAudio: false} satisfies PromoProps}
+		calculateMetadata={audioProps(assets.trailerAudio)}
 	/>
 	</>
 );

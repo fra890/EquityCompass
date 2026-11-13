@@ -10,11 +10,16 @@ import {color, font, paperA, T} from '../theme';
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 // Counts up to the final figure, ease-out, landing exactly on the number.
-export const CountUp: React.FC<{value: number; at: number; dur?: number}> = ({value, at, dur = 22}) => {
+export const CountUp: React.FC<{value: number; at: number; dur?: number; step?: number}> = ({
+	value,
+	at,
+	dur = 22,
+	step = 1000,
+}) => {
 	const frame = useCurrentFrame();
 	const p = easeOut(frame, at, dur);
 	// Round to the nearest $1,000 while moving so the digits stay legible.
-	const v = p >= 1 ? value : Math.round((value * p) / 1000) * 1000;
+	const v = p >= 1 ? value : Math.round((value * p) / step) * step;
 	return <>{usd(v)}</>;
 };
 

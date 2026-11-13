@@ -39,6 +39,20 @@ export const T = {
 	total: 940,
 } as const;
 
+// Series trailer: who it's for, why it exists, the eight chapters, the title. ~43s.
+const CH = 84;
+const CH_LAST = 100;
+export const TR = {
+	names: {from: 0, dur: 66, each: 6},
+	here: {from: 66, dur: 72},
+	paper: {from: 138, dur: 126},
+	chapters: {from: 264, each: CH, last: CH_LAST, dur: CH * 7 + CH_LAST},
+	turn: {from: 264 + CH * 7 + CH_LAST, dur: 78},
+	title: {from: 342 + CH * 7 + CH_LAST, dur: 90},
+	end: {from: 432 + CH * 7 + CH_LAST, dur: 170},
+	total: 602 + CH * 7 + CH_LAST,
+} as const;
+
 // Teaser cut: opens the loop, withholds the explanation. ~19s.
 export const TT = {
 	names: {from: 0, dur: 66, each: 6},
