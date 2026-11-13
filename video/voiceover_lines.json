@@ -1,0 +1,86 @@
+[
+  {
+    "id": "hook_0",
+    "text": "They held SpaceX options for years. Then IPO talk started."
+  },
+  {
+    "id": "hook_1",
+    "text": "A hypothetical: 10,000 options, $2 million on paper."
+  },
+  {
+    "id": "iso_0",
+    "text": "An ISO lets you buy shares at a fixed strike. Here, $10."
+  },
+  {
+    "id": "iso_1",
+    "text": "The share value climbed to a hypothetical $210."
+  },
+  {
+    "id": "iso_2",
+    "text": "The gap is the spread: 10,000 x $200, or $2 million."
+  },
+  {
+    "id": "roads_0",
+    "text": "With an IPO in view, there are two roads out."
+  },
+  {
+    "id": "roads_1",
+    "text": "Disqualified: sell early, pay ordinary income rates."
+  },
+  {
+    "id": "roads_2",
+    "text": "Qualified: hold 2 years from grant, 1 from exercise. Long-term capital gains."
+  },
+  {
+    "id": "roads_3",
+    "text": "So everyone wants to exercise everything now."
+  },
+  {
+    "id": "trap_0",
+    "text": "But exercising counts the whole spread as income for the alternative minimum tax."
+  },
+  {
+    "id": "trap_1",
+    "text": "Here, an AMT bill of roughly $570,000."
+  },
+  {
+    "id": "trap_2",
+    "text": "Tax due in cash. Stock you can't sell yet."
+  },
+  {
+    "id": "refund_0",
+    "text": "The AMT returns as a credit, only when regular tax exceeds tentative minimum tax."
+  },
+  {
+    "id": "refund_1",
+    "text": "Here, roughly $18,000 a year, absent a sale."
+  },
+  {
+    "id": "refund_2",
+    "text": "If the stock falls, you paid tax on gains that never showed up."
+  },
+  {
+    "id": "intersection_0",
+    "text": "The answer sits between all and nothing: an intersection point."
+  },
+  {
+    "id": "intersection_1",
+    "text": "Tentative minimum tax rises with each exercise until it meets regular tax: the crossover."
+  },
+  {
+    "id": "intersection_2",
+    "text": "Here, that is roughly 320 options a year, with about $0 of AMT."
+  },
+  {
+    "id": "intersection_3",
+    "text": "Spread exercises across years, each sized near its crossover."
+  },
+  {
+    "id": "intersection_4",
+    "text": "Go past it only with the credit mapped and the cash set aside."
+  },
+  {
+    "id": "principle_0",
+    "text": "The best tax outcome on paper can be the most expensive one in cash."
+  }
+]

@@ -5,6 +5,7 @@ import { Highlight } from "../components/Highlight";
 import { Stage, T } from "../components/Stage";
 import { D, N, usdRound } from "../numbers";
 import { C } from "../theme";
+import { cue } from "../timeline";
 
 const BASE = 640;
 const BILL_H = 470;
@@ -17,11 +18,13 @@ export const SlowRefund: React.FC = () => {
   const frame = useCurrentFrame();
   const bill = prog(frame, 0.3, 1.2, easeOut);
   const label = pop(frame, 1.1);
-  const brace = pop(frame, 4.2);
-  const total = pop(frame, 5.4);
-  const priceIn = prog(frame, 7.2, 7.8, easeOut);
-  const drop = prog(frame, 7.8, 9.6);
-  const dropTag = pop(frame, 9.2);
+  const c1 = cue("refund", 1);
+  const c2 = cue("refund", 2);
+  const brace = pop(frame, c1 + 0.2);
+  const total = pop(frame, c1 + 1.2);
+  const priceIn = prog(frame, c2 - 0.2, c2 + 0.4, easeOut);
+  const drop = prog(frame, c2 + 0.4, c2 + 2.0);
+  const dropTag = pop(frame, c2 + 1.3);
   const recovered = N.creditPerYear * YEARS;
   return (
     <Stage kicker="Hypothetical example" title={<>The credit comes back <Highlight at={2.0}>slowly.</Highlight></>}>

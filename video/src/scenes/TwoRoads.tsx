@@ -4,6 +4,7 @@ import { pop, prog, easeOut, lerp } from "../anim";
 import { SvgSwipe } from "../components/Highlight";
 import { Stage, T } from "../components/Stage";
 import { C } from "../theme";
+import { cue, sceneSeconds } from "../timeline";
 
 const START = { x: 500, y: 716 };
 const FORK = { x: 500, y: 570 };
@@ -62,8 +63,10 @@ const Card: React.FC<{
 
 export const TwoRoads: React.FC = () => {
   const frame = useCurrentFrame();
-  const draw = prog(frame, 0.3, 2.2);
-  const walk = prog(frame, 9.9, 13, easeOut);
+  const draw = prog(frame, 0.3, 2.0);
+  const c1 = cue("roads", 1);
+  const c2 = cue("roads", 2);
+  const walk = prog(frame, cue("roads", 3), sceneSeconds("roads") - 0.2, easeOut);
   const figures = [0, 1, 2, 3, 4, 5];
   return (
     <Stage kicker="Two ways out of an ISO" title="Which road taxes you less?">
@@ -94,7 +97,7 @@ export const TwoRoads: React.FC = () => {
 
       <Card
         x={232}
-        at={3.0}
+        at={c1}
         rot={-2}
         tone="muted"
         title="Disqualified"
@@ -103,13 +106,13 @@ export const TwoRoads: React.FC = () => {
       />
       <Card
         x={768}
-        at={6.2}
+        at={c2}
         rot={1.5}
         tone="navy"
         title="Qualified"
         lines={["2 yrs from grant +", "1 yr from exercise"]}
         result="Long-term capital gains"
-        swipeAt={7.0}
+        swipeAt={c2 + 0.5}
       />
 
       {/* everyone heads down the qualified road */}

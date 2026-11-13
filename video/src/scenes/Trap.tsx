@@ -5,18 +5,21 @@ import { Highlight } from "../components/Highlight";
 import { Stage, T } from "../components/Stage";
 import { D, N, usd, usdRound } from "../numbers";
 import { C } from "../theme";
+import { cue } from "../timeline";
 
 const amtRounded = Number(usdRound(N.allAtOnce.amt).replace(/[$,]/g, ""));
 
 export const Trap: React.FC = () => {
   const frame = useCurrentFrame();
   const land = pop(frame, 0.4, 11);
-  const lock = pop(frame, 8.4);
-  const bill = prog(frame, 4.2, 5.0, easeOut);
-  const amount = countUp(frame, 4.9, 6.6, amtRounded);
-  const stamp = pop(frame, 8.0, 12);
+  const c1 = cue("trap", 1);
+  const c2 = cue("trap", 2);
+  const lock = pop(frame, c2 + 0.9);
+  const bill = prog(frame, c1, c1 + 0.8, easeOut);
+  const amount = countUp(frame, c1 + 0.7, c1 + 2.3, amtRounded);
+  const stamp = pop(frame, c2, 12);
   return (
-    <Stage kicker="Hypothetical example" title={<>Exercise everything. <Highlight at={4.4}>Owe AMT.</Highlight></>}>
+    <Stage kicker="Hypothetical example" title={<>Exercise everything. <Highlight at={c1 + 0.2}>Owe AMT.</Highlight></>}>
       {/* the exercised shares */}
       <g transform={`translate(245 ${370 - (1 - land) * 520}) rotate(-3)`} opacity={Math.min(1, land * 2)}>
         {[2, 1, 0].map((i) => (

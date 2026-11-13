@@ -11,7 +11,7 @@ import { Principle } from "./scenes/Principle";
 import { SlowRefund } from "./scenes/SlowRefund";
 import { Trap } from "./scenes/Trap";
 import { TwoRoads } from "./scenes/TwoRoads";
-import { SCENES, SCENE_TIMING, TOTAL_FRAMES, type SceneId } from "./timeline";
+import { f, LINES, SCENES, SCENE_TIMING, TOTAL_FRAMES, type SceneId } from "./timeline";
 
 const SCENE_COMPONENTS: Record<SceneId, React.FC> = {
   hook: Hook,
@@ -40,12 +40,14 @@ const SceneWrap: React.FC<{ duration: number; children: React.ReactNode }> = ({ 
 };
 
 export type VideoProps = {
+  /** Synthetic narration (public/vo). On by default; --props='{"voiceover":false}' for a silent cut. */
+  voiceover: boolean;
   /** Soft ambient music bed. Off by default; turn on with --props='{"music":true}'. */
   music: boolean;
   musicVolume: number;
 };
 
-export const IsoAmtVideo: React.FC<VideoProps> = ({ music, musicVolume }) => (
+export const IsoAmtVideo: React.FC<VideoProps> = ({ voiceover, music, musicVolume }) => (
   <AbsoluteFill>
     <PaperBackground />
     {SCENES.map(({ id }) => {
@@ -57,6 +59,13 @@ export const IsoAmtVideo: React.FC<VideoProps> = ({ music, musicVolume }) => (
             <Scene />
           </SceneWrap>
           <Captions scene={id} />
+          {voiceover
+            ? LINES[id].map((l) => (
+                <Sequence key={l.id} from={f(l.at)} layout="none">
+                  <Audio src={staticFile(`vo/${l.id}.mp3`)} />
+                </Sequence>
+              ))
+            : null}
         </Sequence>
       );
     })}

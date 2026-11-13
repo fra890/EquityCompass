@@ -6,7 +6,7 @@ import { writeFileSync } from "node:fs";
 import { D, N, S, usd, usdRound } from "../src/numbers";
 import { DISCLOSURE_FIRM_LINE, DISCLOSURE_TEXT, SCRIPT, stripMarks } from "../src/script";
 import { TAX_CONFIG as T } from "../src/taxModel";
-import { SCENES, SCENE_TIMING, TOTAL_SECONDS } from "../src/timeline";
+import { LINES, SCENES, SCENE_TIMING, TOTAL_SECONDS } from "../src/timeline";
 
 type Row = [string, string, string];
 const table = (head: Row, rows: Row[]) =>
@@ -104,7 +104,7 @@ const vo: string[] = [
 SCENES.forEach(({ id }, i) => {
   const t = SCENE_TIMING[id];
   vo.push(`SCENE ${i + 1}: ${id.toUpperCase()}  [${stamp(t.startSec)} - ${stamp(t.startSec + t.seconds)}]`);
-  for (const l of SCRIPT[id]) vo.push(`  ${stamp(t.startSec + l.at)} - ${stamp(t.startSec + l.to)}  ${stripMarks(l.text)}`);
+  for (const l of LINES[id]) vo.push(`  ${stamp(t.startSec + l.at)} - ${stamp(t.startSec + l.at + l.speak)}  ${stripMarks(l.text)}`);
   if (id === "disclosure") {
     vo.push("  (No narration. On-screen text, held for the full scene:)");
     vo.push(`  ${DISCLOSURE_TEXT}`);
@@ -113,6 +113,11 @@ SCENES.forEach(({ id }, i) => {
   vo.push("");
 });
 
+// Lines for the text-to-speech step (scripts/makeVoiceover.py).
+const voLines = SCENES.flatMap(({ id }) =>
+  SCRIPT[id].map((l, i) => ({ id: `${id}_${i}`, text: stripMarks(l.text) })),
+);
+writeFileSync("voiceover_lines.json", JSON.stringify(voLines, null, 2) + "\n");
 writeFileSync("numbers.md", md);
 writeFileSync("voiceover_script.txt", vo.join("\n"));
 console.log(md);

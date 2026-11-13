@@ -35,7 +35,7 @@ export const Principle: React.FC = () => {
       >
         <div style={{ color: C.navy }}>{WORDS_A.map((w, i) => word(w, i, 0.3))}</div>
         <div style={{ marginTop: 28 }}>
-          {WORDS_B.map((w, i) => word(w, i, 1.5))}
+          {WORDS_B.map((w, i) => word(w, i, 1.55))}
           <span style={{ display: "inline-block", opacity: last, transform: `translateY(${(1 - last) * 22}px)` }}>
             <Highlight at={2.7} dur={0.6}>in cash.</Highlight>
           </span>

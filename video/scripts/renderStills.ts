@@ -21,7 +21,7 @@ const main = async () => {
     const composition = await selectComposition({ serveUrl, id, browserExecutable });
     for (const [i, scene] of SCENES.entries()) {
       if (only && only !== scene.id) continue;
-      const times = [STILL_AT[scene.id]].flat();
+      const times = STILL_AT[scene.id];
       for (const [k, sec] of times.entries()) {
         const frame = SCENE_TIMING[scene.id].from + Math.round(sec * FPS);
         const suffix = times.length > 1 ? String.fromCharCode(97 + k) : "";

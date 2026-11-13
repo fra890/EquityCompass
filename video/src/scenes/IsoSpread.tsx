@@ -5,6 +5,7 @@ import { Highlight } from "../components/Highlight";
 import { Stage, T } from "../components/Stage";
 import { D, N, S } from "../numbers";
 import { C } from "../theme";
+import { cue } from "../timeline";
 
 const X0 = 120;
 const X1 = 800;
@@ -24,15 +25,17 @@ export const IsoSpread: React.FC = () => {
   const frame = useCurrentFrame();
   const axes = prog(frame, 0.1, 0.7, easeOut);
   const strike = prog(frame, 0.5, 1.7);
-  const fmv = prog(frame, 3.4, 5.6);
-  const area = prog(frame, 6.5, 7.6, easeOut);
-  const strikeTag = pop(frame, 1.7);
-  const fmvTag = pop(frame, 5.5);
-  const brace = pop(frame, 7.2);
+  const c1 = cue("iso", 1);
+  const c2 = cue("iso", 2);
+  const fmv = prog(frame, c1, c1 + 2.0);
+  const area = prog(frame, c2 + 0.3, c2 + 1.3, easeOut);
+  const strikeTag = pop(frame, 2.6);
+  const fmvTag = pop(frame, c1 + 1.9);
+  const brace = pop(frame, c2 + 0.8);
   const ys = py(S.strike);
   const yf = py(S.fmv);
   return (
-    <Stage kicker="Hypothetical example" title={<>Strike stays put. <Highlight at={6.8}>Value doesn't.</Highlight></>}>
+    <Stage kicker="Hypothetical example" title={<>Strike stays put. <Highlight at={c1 + 0.3}>Value doesn't.</Highlight></>}>
       {/* axes */}
       <g opacity={axes}>
         <line x1={X0} y1={Y0} x2={X1 + 20} y2={Y0} stroke={C.ink} strokeWidth={4} strokeLinecap="round" />

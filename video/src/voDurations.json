@@ -1,0 +1,23 @@
+{
+  "hook_0": 3.47,
+  "hook_1": 3.6,
+  "iso_0": 3.55,
+  "iso_1": 3.37,
+  "iso_2": 4.55,
+  "roads_0": 2.27,
+  "roads_1": 3.0,
+  "roads_2": 4.83,
+  "roads_3": 2.25,
+  "trap_0": 4.31,
+  "trap_1": 3.87,
+  "trap_2": 2.12,
+  "refund_0": 5.07,
+  "refund_1": 2.72,
+  "refund_2": 3.16,
+  "intersection_0": 3.06,
+  "intersection_1": 5.2,
+  "intersection_2": 4.75,
+  "intersection_3": 3.29,
+  "intersection_4": 2.9,
+  "principle_0": 3.5
+}

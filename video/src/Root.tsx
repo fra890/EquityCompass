@@ -4,7 +4,7 @@ import "./fonts";
 import { FPS, TOTAL_FRAMES } from "./timeline";
 import { IsoAmtVideo, type VideoProps } from "./Video";
 
-const defaultProps: VideoProps = { music: false, musicVolume: 0.5 };
+const defaultProps: VideoProps = { voiceover: true, music: false, musicVolume: 0.18 };
 
 export const Root: React.FC = () => (
   <>

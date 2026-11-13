@@ -5,6 +5,7 @@ import { Highlight } from "../components/Highlight";
 import { Stage, T } from "../components/Stage";
 import { D, N, S } from "../numbers";
 import { C } from "../theme";
+import { cue, FPS } from "../timeline";
 
 // ---- Part A: crossover chart (tax vs ISO spread exercised this year) ----
 const X0 = 120;
@@ -33,20 +34,24 @@ export const Intersection: React.FC = () => {
   const frame = useCurrentFrame();
   const axes = prog(frame, 0.2, 0.8, easeOut);
   const reg = prog(frame, 0.8, 2.2);
-  const tmt = prog(frame, 3.5, 6.2);
-  const dot = pop(frame, 5.0);
+  const c1 = cue("intersection", 1);
+  const c2 = cue("intersection", 2);
+  const c3 = cue("intersection", 3);
+  const c4 = cue("intersection", 4);
+  const tmt = prog(frame, c1, c1 + 2.7);
+  const dot = pop(frame, c1 + 3.4);
   const pulse = 0.5 + 0.5 * Math.sin(frame / 7);
-  const wedge = prog(frame, 6.2, 7.0, easeOut);
-  const info = pop(frame, 7.6);
-  const aOut = 1 - prog(frame, 11.0, 11.4);
-  const bIn = prog(frame, 11.3, 11.8, easeOut);
-  const lineB = prog(frame, 11.5, 12.6);
-  const sum = pop(frame, 13.6);
-  const past = pop(frame, 15.2);
+  const wedge = prog(frame, c1 + 4.2, c1 + 5.0, easeOut);
+  const info = pop(frame, c2 + 0.3);
+  const aOut = 1 - prog(frame, c3 - 0.4, c3);
+  const bIn = prog(frame, c3 - 0.1, c3 + 0.4, easeOut);
+  const lineB = prog(frame, c3 + 0.1, c3 + 1.1);
+  const sum = pop(frame, c3 + 1.9);
+  const past = pop(frame, c4 + 0.3);
   return (
     <Stage
       kicker="Hypothetical example"
-      title={frame < 11.2 * 30 ? <>Find the <Highlight at={5.2}>crossover.</Highlight></> : <>Size each year <Highlight at={12.0}>to the line.</Highlight></>}
+      title={frame < (c3 - 0.2) * FPS ? <>Find the <Highlight at={c1 + 3.4}>crossover.</Highlight></> : <>Size each year <Highlight at={c3 + 0.6}>to the line.</Highlight></>}
     >
       {/* ================= Part A ================= */}
       <g opacity={aOut} transform={`translate(0 ${(1 - aOut) * -20})`}>
@@ -86,7 +91,7 @@ export const Intersection: React.FC = () => {
           strokeDashoffset={1 - tmt}
           opacity={tmt > 0 ? 1 : 0}
         />
-        <g opacity={prog(frame, 6.0, 6.4)}>
+        <g opacity={prog(frame, c1 + 2.5, c1 + 2.9)}>
           <T x={X1 - 150} y={cy(N.curve[N.curve.length - 1].tmt) + 2} size={30} weight={700} anchor="end">
             tentative minimum tax
           </T>
@@ -120,7 +125,7 @@ export const Intersection: React.FC = () => {
       <g opacity={bIn}>
         <line x1={60} y1={BASE} x2={940} y2={BASE} stroke={C.ink} strokeWidth={4} strokeLinecap="round" />
         {N.staggered.map((row, i) => {
-          const p = pop(frame, 11.7 + i * 0.3, 12);
+          const p = pop(frame, c3 + 0.3 + i * 0.3, 12);
           const h = BAR_H * p;
           const x = barX(i);
           return (
@@ -149,7 +154,7 @@ export const Intersection: React.FC = () => {
           strokeWidth={5}
           strokeDasharray="16 12"
         />
-        <g opacity={prog(frame, 12.4, 12.8)} transform={`translate(72 ${BASE - BAR_H - 42})`}>
+        <g opacity={prog(frame, c3 + 1.0, c3 + 1.4)} transform={`translate(72 ${BASE - BAR_H - 42})`}>
           <rect x={-8} y={-34} width={244} height={48} fill={C.highlight} transform="rotate(-1.5)" />
           <T x={4} y={0} size={30} weight={800} head>crossover line</T>
         </g>

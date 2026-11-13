@@ -5,6 +5,7 @@ import { Highlight } from "../components/Highlight";
 import { useLayout } from "../components/Stage";
 import { N, usd } from "../numbers";
 import { C, FONT_BODY, FONT_HEAD } from "../theme";
+import { cue, sceneSeconds } from "../timeline";
 
 /** Generic cut-paper rocket (no brand marks). */
 const Rocket: React.FC<{ size: number }> = ({ size }) => (
@@ -23,11 +24,12 @@ const Rocket: React.FC<{ size: number }> = ({ size }) => (
 export const Hook: React.FC = () => {
   const frame = useCurrentFrame();
   const L = useLayout();
-  const value = countUp(frame, 2.9, 4.5, N.totalSpread);
+  const c1 = cue("hook", 1);
+  const value = countUp(frame, c1, c1 + 1.6, N.totalSpread);
   const line1 = pop(frame, 0.1);
-  const line2 = pop(frame, 1.5);
-  const numIn = pop(frame, 2.8);
-  const rise = prog(frame, 0, 6, easeOut);
+  const line2 = pop(frame, 1.9);
+  const numIn = pop(frame, c1 - 0.1);
+  const rise = prog(frame, 0, sceneSeconds("hook"), easeOut);
   const big = L.tall ? 96 : 80;
   return (
     <AbsoluteFill>
@@ -65,7 +67,7 @@ export const Hook: React.FC = () => {
               color: C.navy,
             }}
           >
-            Then <Highlight at={2.0}>IPO talk</Highlight> started.
+            Then <Highlight at={2.4}>IPO talk</Highlight> started.
           </div>
         </div>
 
