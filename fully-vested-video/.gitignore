@@ -1,0 +1,5 @@
+node_modules/
+.remotion/
+*.log
+# ProRes masters are too large for git. Re-create them with: npm run render
+out/*.mov

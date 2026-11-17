@@ -1,0 +1,17 @@
+{
+  "episodeNumber": 1,
+  "episodeTitle": "What to do before your lockup ends",
+
+  "cta": "Book a 20-minute equity review",
+  "url": "tidemarkfp.com/equity",
+  "disclosure": "[DISCLOSURE PLACEHOLDER: pending CCO approval]",
+
+  "hostName": "Frank Alvarez",
+  "hostTitle": "Financial Consultant",
+  "firmName": "Tidemark Financial Partners",
+
+  "logoFile": "tidemark-logo.png",
+  "audioFile": "sting.mp3",
+  "introBeatSeconds": 2.2,
+  "outroBeatSeconds": 1.0
+}
