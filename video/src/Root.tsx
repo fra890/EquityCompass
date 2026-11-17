@@ -4,11 +4,15 @@ import "./fonts";
 import { TOTAL_FRAMES as DOOR_FRAMES } from "./doorSticker/timeline";
 import { DoorStickerVideo, type DoorStickerProps } from "./doorSticker/Video";
 import { FPS, TOTAL_FRAMES } from "./timeline";
+import { TOTAL_FRAMES as LOG_FRAMES } from "./workLog/timeline";
+import { WorkLogVideo, type WorkLogProps } from "./workLog/Video";
 import { IsoAmtVideo, type VideoProps } from "./Video";
 
 const defaultProps: VideoProps = { voiceover: false, music: true, musicVolume: 0.6 };
 
 const doorProps: DoorStickerProps = { music: false, musicVolume: 0.6 };
+
+const logProps: WorkLogProps = { music: true, musicVolume: 0.6 };
 
 export const Root: React.FC = () => (
   <>
@@ -51,5 +55,8 @@ export const Root: React.FC = () => (
       durationInFrames={DOOR_FRAMES}
       defaultProps={doorProps}
     />
+    {/* "Work log": what a few months of client work actually were */}
+    <Composition id="WorkLog4x5" component={WorkLogVideo} width={1080} height={1350} fps={FPS} durationInFrames={LOG_FRAMES} defaultProps={logProps} />
+    <Composition id="WorkLog1x1" component={WorkLogVideo} width={1080} height={1080} fps={FPS} durationInFrames={LOG_FRAMES} defaultProps={logProps} />
   </>
 );

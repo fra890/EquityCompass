@@ -4,6 +4,7 @@
  *   npm run stills -- iso trap     ISO/AMT video, one scene
  *   npm run stills:door            door-sticker video, all scenes
  *   npm run stills -- door truck   door-sticker video, one scene
+ *   npm run stills:log             work-log video, all scenes
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -11,10 +12,12 @@ import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
 import * as door from "../src/doorSticker/timeline";
 import * as iso from "../src/timeline";
+import * as log from "../src/workLog/timeline";
 
 const VIDEOS = {
   iso: { comp: "IsoAmt", prefix: "", t: iso },
   door: { comp: "DoorSticker", prefix: "door_sticker_", t: door },
+  log: { comp: "WorkLog", prefix: "work_log_", t: log },
 } as const;
 
 const main = async () => {
@@ -22,7 +25,7 @@ const main = async () => {
   const which = (process.argv[2] as keyof typeof VIDEOS) || "iso";
   const only = process.argv[3];
   const v = VIDEOS[which];
-  if (!v) throw new Error(`unknown video "${which}" (use iso or door)`);
+  if (!v) throw new Error(`unknown video "${which}" (use iso, door or log)`);
   const timing = v.t.SCENE_TIMING as Record<string, { from: number }>;
   const stillAt = v.t.STILL_AT as Record<string, number[]>;
   const browserExecutable = process.env.REMOTION_CHROME || undefined;

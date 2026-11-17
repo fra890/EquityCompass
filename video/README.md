@@ -1,13 +1,36 @@
 # Explainer videos (Remotion)
 
-Two animated explainers for native LinkedIn posting, sharing one set of style components
+Three animated explainers for native LinkedIn posting, sharing one set of style components
 (paper background, highlighter swipe, caption system, end card, disclosure card).
 Captions are burned in; there is no narration.
 
 1. **ISO / AMT** (`IsoAmt4x5`, `IsoAmt1x1`) — source in `src/`, ~90s.
 2. **Loaded to the door sticker** (`DoorSticker4x5`, `DoorSticker1x1`) — source in `src/doorSticker/`, ~90s.
+3. **Work log** (`WorkLog4x5`, `WorkLog1x1`) — what a few months of work for one couple were; source in `src/workLog/`, ~90s.
 
 **DRAFTS. Advertising under the SEC Marketing Rule: each requires CCO approval before use.**
+
+## Work log
+
+| File | What |
+| --- | --- |
+| `out/work_log_4x5.mp4` | 1080x1350, 30fps, H.264. |
+| `out/work_log_1x1.mp4` | 1080x1080 variant, same scenes. |
+| `out/stills/work_log_*.png` | One PNG per scene per format (allocation and family have two each). |
+| `voiceover_script_work_log.txt` | Timed caption lines. |
+
+```bash
+cd video
+npm install
+npm run stills:log         # review stills -> out/stills/work_log_*.png
+npm run render:log:4x5     # out/work_log_4x5.mp4
+npm run render:log:1x1     # out/work_log_1x1.mp4
+npm run render:log         # script + both MP4s
+npm run render:log:4x5 -- --props='{"music":false}'   # silent cut (music is on by default here)
+```
+
+Captions, figures and the disclosure text are in `src/workLog/script.ts`; pacing is in `src/workLog/timeline.ts`;
+one component per section in `src/workLog/scenes/`.
 
 ## Loaded to the door sticker
 
