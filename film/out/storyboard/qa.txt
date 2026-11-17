@@ -1,0 +1,47 @@
+PASS  $100,000 x 22% = $22,000
+PASS  $100,000 x 37% = $37,000
+PASS  gap = $37,000 - $22,000 = $15,000
+PASS  vest label carries the figure and '(example)'
+PASS  slice labels match the math
+PASS  banned word 'guaranteed' absent from on-screen text
+PASS  banned word 'best' absent from on-screen text
+PASS  banned word 'top' absent from on-screen text
+PASS  banned word 'maximize' absent from on-screen text
+PASS  banned word 'safe' absent from on-screen text
+PASS  banned word 'always' absent from on-screen text
+PASS  media line toggle is OFF
+PASS  4x5 hook/SpaceX inside safe area
+PASS  4x5 hook/Anduril inside safe area
+PASS  4x5 hook/Tesla inside safe area
+PASS  4x5 caption 1 inside safe area
+PASS  4x5 caption 2 inside safe area
+PASS  4x5 caption 3 inside safe area
+PASS  4x5 end card (media line off) inside safe area
+PASS  4x5 logo aspect 6.236 vs source 6.232
+PASS  4x5 end card (media line on) inside safe area
+PASS  4x5 logo aspect 6.236 vs source 6.232
+PASS  4x5 disclosure 26px = 9.0pt on a 375pt-wide phone feed
+PASS  16x9 hook/SpaceX inside safe area
+PASS  16x9 hook/Anduril inside safe area
+PASS  16x9 hook/Tesla inside safe area
+PASS  16x9 caption 1 inside safe area
+PASS  16x9 caption 2 inside safe area
+PASS  16x9 caption 3 inside safe area
+PASS  16x9 end card (media line off) inside safe area
+PASS  16x9 logo aspect 6.233 vs source 6.232
+PASS  16x9 end card (media line on) inside safe area
+PASS  16x9 logo aspect 6.233 vs source 6.232
+PASS  16x9 disclosure 44px = 8.6pt on a 375pt-wide phone feed
+PASS  9x16 hook/SpaceX inside safe area
+PASS  9x16 hook/Anduril inside safe area
+PASS  9x16 hook/Tesla inside safe area
+PASS  9x16 caption 1 inside safe area
+PASS  9x16 caption 2 inside safe area
+PASS  9x16 caption 3 inside safe area
+PASS  9x16 end card (media line off) inside safe area
+PASS  9x16 logo aspect 6.236 vs source 6.232
+PASS  9x16 end card (media line on) inside safe area
+PASS  9x16 logo aspect 6.236 vs source 6.232
+PASS  9x16 disclosure 26px = 9.0pt on a 375pt-wide phone feed
+
+0 failure(s)
