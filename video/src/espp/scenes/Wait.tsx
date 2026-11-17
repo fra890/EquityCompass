@@ -52,12 +52,12 @@ export const Wait: React.FC = () => {
         from={E.paid}
         to={E.paid + E.qualifying.ordinary + 5}
         amount={D.qOrdinary}
-        line1="taxed like salary"
-        line2={`${D.discount} of the ${D.offering} start price`}
+        line1={`${D.discount} × ${D.offering}`}
+        line2="ordinary income"
         fill={C.red}
         opacity={l1}
       />
-      <BandLabel from={ESPP.purchasePrice} to={ESPP.salePrice} amount={D.qCapital} line1="long-term gain" line2="lower rate" fill={C.navy} opacity={l2} />
+      <BandLabel from={ESPP.purchasePrice} to={ESPP.salePrice} amount={D.qCapital} line1={`${D.totalGain} − ${D.qOrdinary}`} line2="long-term capital gain" fill={C.navy} opacity={l2} />
       <g opacity={tag} transform={`translate(500 ${SBASE + 44}) scale(${0.8 + 0.2 * tag})`}>
         <rect x={-330} y={-30} width={660} height={54} fill={C.ink} transform="rotate(-0.8)" />
         <T x={0} y={7} size={29} weight={800} anchor="middle" head fill={C.highlight}>

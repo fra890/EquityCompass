@@ -92,6 +92,8 @@ export const D = {
   yearsFromPurchase: (ESPP.monthsFromPurchase / 12).toString(),
   growth: usd(E.growth),
   shifted: usd(E.disqualifying.ordinary - E.qualifying.ordinary),
+  payPct: `${Math.round((1 - ESPP.discount) * 100)}%`,
+  basePrice: usd(E.basePrice),
   shares: ESPP.shares.toLocaleString("en-US"),
   ordinaryRate: `${Math.round(ESPP.ordinaryRate * 100)}%`,
   longTermRate: `${Math.round(ESPP.longTermRate * 100)}%`,

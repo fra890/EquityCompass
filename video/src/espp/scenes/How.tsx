@@ -18,7 +18,6 @@ export const How: React.FC = () => {
   const frame = useCurrentFrame();
   const c1 = cue("how", 1);
   const c2 = cue("how", 2);
-  const c3 = cue("how", 3);
   const axes = prog(frame, 0.2, 0.8, easeOut);
   const line = prog(frame, c1 + 0.2, c1 + 1.8);
   const yo = py(ESPP.offeringPrice);
@@ -26,7 +25,7 @@ export const How: React.FC = () => {
   const ypaid = py(E.paid);
   const paid = pop(frame, c2 + 0.5);
   const gap = pop(frame, c2 + 1.4);
-  const noTax = pop(frame, c3 + 0.2);
+  const noTax = pop(frame, c2 + 2.4);
   return (
     <Stage kicker={KICKER} title={<>Buy at a discount. <Highlight at={c2 + 0.6}>Off the lower price.</Highlight></>}>
       <g opacity={axes}>
@@ -76,7 +75,7 @@ export const How: React.FC = () => {
         <line x1={X0} y1={ypaid} x2={X1 + 12} y2={ypaid} stroke={C.navy} strokeWidth={7} strokeLinecap="round" />
         <T x={X1 + 44} y={ypaid + 16} size={50} weight={800} head fill={C.navy}>{D.paid}</T>
         <T x={X1 + 44} y={ypaid + 50} size={25} weight={700} fill={C.navy}>you pay</T>
-        <T x={X0 + 14} y={ypaid + 36} size={24} weight={700} fill={C.navy}>{D.discount} off {D.offering}</T>
+        <T x={X0 + 14} y={ypaid + 38} size={27} weight={800} fill={C.navy}>{D.basePrice} × {D.payPct} = {D.paid}</T>
       </g>
       {/* the built-in gap on the purchase date */}
       <g opacity={gap}>

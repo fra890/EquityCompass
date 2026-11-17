@@ -17,7 +17,7 @@ export const Hook: React.FC = () => {
   const end = sceneSeconds("hook");
   // handle sweeps early -> late -> settles in the middle
   const s1 = prog(frame, 2.4, 3.8);
-  const s2 = prog(frame, 4.6, end - 0.6);
+  const s2 = prog(frame, 4.0, end - 0.3);
   const pos = 0.12 + 0.76 * s1 - 0.26 * s2;
   const late = pos > 0.5;
   const x = 90 + 820 * pos;

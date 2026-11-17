@@ -7,6 +7,7 @@ import { Disclosure } from "../scenes/Disclosure";
 import { EndCard } from "../scenes/EndCard";
 import { Catch } from "./scenes/Catch";
 import { Clock } from "./scenes/Clock";
+import { Differ } from "./scenes/Differ";
 import { Dollars } from "./scenes/Dollars";
 import { Early } from "./scenes/Early";
 import { Hook } from "./scenes/Hook";
@@ -24,6 +25,7 @@ const SCENE_COMPONENTS: Record<SceneId, React.FC> = {
   pieces: Pieces,
   early: Early,
   wait: Wait,
+  differ: Differ,
   dollars: Dollars,
   catch: Catch,
   principle: Principle,
