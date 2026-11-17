@@ -7,7 +7,7 @@ Captions are burned in; there is no narration.
 1. **ISO / AMT** (`IsoAmt4x5`, `IsoAmt1x1`) — source in `src/`, ~90s.
 2. **Loaded to the door sticker** (`DoorSticker4x5`, `DoorSticker1x1`) — source in `src/doorSticker/`, ~90s.
 3. **Work log** (`WorkLog4x5`, `WorkLog1x1`) — what a few months of work for one couple were; source in `src/workLog/`, ~90s.
-4. **ESPP dispositions** (`Espp4x5`, `Espp1x1`) — qualifying vs disqualifying sales and how each is taxed; source in `src/espp/`, ~85s.
+4. **ESPP dispositions** (`Espp4x5`, `Espp1x1`) — selling early vs waiting, built up step by step and shown in dollars; source in `src/espp/`, ~86s.
 
 **DRAFTS. Advertising under the SEC Marketing Rule: each requires CCO approval before use.**
 

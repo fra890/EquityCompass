@@ -7,12 +7,13 @@ import { Disclosure } from "../scenes/Disclosure";
 import { EndCard } from "../scenes/EndCard";
 import { Catch } from "./scenes/Catch";
 import { Clock } from "./scenes/Clock";
-import { Compare } from "./scenes/Compare";
-import { Disqualifying } from "./scenes/Disqualifying";
+import { Dollars } from "./scenes/Dollars";
+import { Early } from "./scenes/Early";
 import { Hook } from "./scenes/Hook";
 import { How } from "./scenes/How";
 import { Principle } from "./scenes/Principle";
-import { Qualifying } from "./scenes/Qualifying";
+import { Pieces } from "./scenes/Pieces";
+import { Wait } from "./scenes/Wait";
 import { DISCLOSURE_FIRM_LINE, DISCLOSURE_TEXT } from "./script";
 import { LINES, SCENES, SCENE_TIMING, TOTAL_FRAMES, type SceneId } from "./timeline";
 
@@ -20,9 +21,10 @@ const SCENE_COMPONENTS: Record<SceneId, React.FC> = {
   hook: Hook,
   how: How,
   clock: Clock,
-  disqualifying: Disqualifying,
-  qualifying: Qualifying,
-  compare: Compare,
+  pieces: Pieces,
+  early: Early,
+  wait: Wait,
+  dollars: Dollars,
   catch: Catch,
   principle: Principle,
   endcard: EndCard,
