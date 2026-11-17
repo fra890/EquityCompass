@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Borrow vs. Sell | Tidemark Financial Partners</title>
+<style>
+:root{
+  --navy:#1B365D; --blue:#006298; --gold:#B8860B; --gold-bg:#FFF6DC; --gold-line:#D9B44A;
+  --ink:#1c2530; --ink2:#4a5562; --muted:#7a8490; --line:#d9dee4; --soft:#f3f5f7; --paper:#fcfcfb;
+  --box:#006298; --pal:#C8571B; --mort:#1F8A70; --sell:#1B365D;
+  --crit:#B3261E; --crit-bg:#FBEAE8; --ok:#1F6F43; --ok-bg:#E8F3EC;
+  --serif: Georgia, "Times New Roman", Times, serif;
+  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper);font-size:14px;line-height:1.45}
+h1,h2,h3{font-family:var(--serif);color:var(--navy);margin:0;font-weight:600}
+h1{font-size:28px;letter-spacing:.2px}
+h2{font-size:19px;margin-bottom:2px}
+h3{font-size:15px}
+.app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:100vh}
+/* ---------- input panel ---------- */
+.panel{position:sticky;top:0;height:100vh;overflow-y:auto;background:#fff;border-right:1px solid var(--line);padding:14px 14px 28px}
+.panel h3{margin:16px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--navy);font-size:13px;text-transform:uppercase;letter-spacing:.8px}
+.panel h3:first-of-type{margin-top:6px}
+.f{display:grid;grid-template-columns:1fr 118px;gap:8px;align-items:center;margin:5px 0}
+.f label{font-size:12.5px;color:var(--ink2)}
+.f small,.note{display:block;font-size:11px;color:var(--muted);line-height:1.3}
+.f input[type=text],.f input[type=number],.f input[type=date],.f select{
+  width:100%;padding:5px 7px;border:1px solid var(--gold-line);background:var(--gold-bg);border-radius:4px;
+  font:600 13px var(--sans);color:var(--navy);text-align:right}
+.f select,.f input[type=date]{text-align:left;font-weight:500}
+.f input:focus,.f select:focus{outline:2px solid var(--blue);outline-offset:1px}
+.f input:disabled{background:var(--soft);border-color:var(--line);color:var(--muted)}
+.f input[type=range]{width:100%}
+.f .chk{display:flex;justify-content:flex-end}
+.f .chk input{width:18px;height:18px;accent-color:var(--gold)}
+.rate-src{font-size:10.5px;color:var(--muted);margin:-2px 0 6px;line-height:1.3}
+.stale{background:var(--crit-bg);color:var(--crit);border:1px solid #e7b6b1;border-radius:4px;padding:5px 7px;font-size:11.5px;margin:6px 0;display:none}
+.stale.on{display:block}
+.btn{font:600 12px var(--sans);padding:7px 11px;border-radius:4px;border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer}
+.btn.ghost{background:#fff;color:var(--navy)}
+.btn.small{padding:4px 8px;font-size:11px}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.legend-gold{font-size:11px;color:var(--muted);margin:2px 0 8px}
+.legend-gold i{display:inline-block;width:12px;height:12px;background:var(--gold-bg);border:1px solid var(--gold-line);vertical-align:-2px;margin-right:5px;border-radius:2px}
+/* ---------- main ---------- */
+main{padding:18px 26px 30px;min-width:0}
+.head{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:3px solid var(--navy);padding-bottom:12px;margin-bottom:6px}
+.head img{height:38px;width:auto;display:block}
+.head .ttl{text-align:right}
+.head .ttl p{margin:2px 0 0;color:var(--ink2);font-size:12.5px}
+.toolbar{display:flex;gap:8px;justify-content:flex-end;margin:10px 0 4px}
+.banner{background:#EEF3F8;border-left:4px solid var(--blue);padding:8px 12px;font-size:12.5px;color:var(--ink2);margin:8px 0 14px}
+.banner b{color:var(--navy)}
+section{margin:22px 0 0}
+.sub{color:var(--ink2);font-size:12.5px;margin:0 0 10px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:#fff;border:1px solid var(--line);border-top:5px solid var(--c);border-radius:6px;padding:12px 12px 10px;display:flex;flex-direction:column}
+.card h3{font-size:16px;display:flex;align-items:center;gap:6px}
+.card .tag{font:11px var(--sans);color:var(--muted);margin-bottom:8px;min-height:30px}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dotted var(--line)}
+.kv span:first-child{color:var(--ink2)}
+.kv b{font-variant-numeric:tabular-nums;color:var(--ink)}
+.big{font:600 24px var(--serif);color:var(--navy);font-variant-numeric:tabular-nums;line-height:1.1}
+.biglab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:6px}
+.pair{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}
+.pair .blk{border-radius:4px;padding:7px 8px;font-size:12px;line-height:1.35}
+.pair .risk{background:var(--crit-bg);border-left:3px solid var(--crit)}
+.pair .when{background:var(--soft);border-left:3px solid var(--navy)}
+.pair b.h{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px}
+.pair .risk b.h{color:var(--crit)} .pair .when b.h{color:var(--navy)}
+.warn{color:var(--crit);font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+.box{background:#fff;border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+svg{display:block;width:100%;height:auto;font-family:var(--sans)}
+svg text{fill:var(--ink2);font-size:11px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink2);margin:4px 0 6px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid var(--c);vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+.slider-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin:4px 0 2px}
+.slider-row input{width:100%;accent-color:var(--gold)}
+.slider-row output{font:600 20px var(--serif);color:var(--navy);min-width:74px;text-align:right}
+.be{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.be span{font-size:12px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:4px;padding:4px 8px;background:#fff}
+.be b{font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+th{font-weight:600;color:var(--navy);background:var(--soft);font-size:11.5px}
+th:first-child,td:first-child{text-align:left}
+td.call{color:var(--crit);font-weight:600} td.okc{color:var(--ok);font-weight:600}
+details{margin-top:8px} summary{cursor:pointer;color:var(--blue);font-size:12px;font-weight:600}
+.fit{display:grid;grid-template-columns:150px repeat(4,minmax(0,1fr));gap:6px}
+.fit .hd{font:600 12.5px var(--serif);color:#fff;background:var(--c);padding:6px 8px;border-radius:4px}
+.fit .rw{font:600 12px var(--sans);color:var(--navy);padding:8px 4px;align-self:center}
+.fit .cell{border:1px dashed var(--line);border-radius:4px;padding:6px 8px;font-size:11.5px;color:var(--muted);background:#fff;line-height:1.3}
+.fit .cell.on{border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 9%,#fff);color:var(--ink)}
+.fit .cell .st{display:block;font-weight:700;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:1px}
+.fit .cell.on .st{color:var(--c)}
+.tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--line);box-shadow:0 4px 14px rgba(20,30,50,.16);border-radius:5px;padding:7px 9px;font-size:12px;z-index:50;display:none;min-width:150px}
+.tip b{color:var(--navy)} .tip .r{display:flex;justify-content:space-between;gap:14px;font-variant-numeric:tabular-nums}
+.tip .r i{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);margin-right:5px}
+.foot{margin-top:26px;border-top:3px solid var(--navy);padding-top:10px;font-size:11.5px;color:var(--ink2)}
+.foot .sig{font:600 14px var(--serif);color:var(--navy)}
+.foot .hyp{font-weight:700;color:var(--ink);margin:2px 0 8px}
+.foot ol{margin:4px 0 8px;padding-left:18px} .foot li{margin:2px 0}
+.foot h4{font:600 12.5px var(--serif);color:var(--navy);margin:12px 0 2px}
+.foot p{margin:6px 0}
+.print-only{display:none}
+@media (max-width:1100px){.app{grid-template-columns:1fr}.panel{position:static;height:auto}.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+@page{size:letter;margin:0.5in}
+@media print{
+  body{font-size:10px;background:#fff}
+  .foot{font-size:8.5px;margin-top:12px}.foot li{margin:0}
+  .sub{font-size:9px;margin-bottom:5px}.kv{font-size:9px;padding:1px 0}.pair .blk{font-size:8.5px;padding:4px 6px}.card .tag{font-size:8.5px;min-height:0;margin-bottom:2px}.biglab{font-size:8px;margin-top:3px}
+  h1{font-size:22px}h2{font-size:14px}h3{font-size:11.5px}.card h3{font-size:12.5px}
+  table{font-size:9px}th,td{padding:2px 5px}.fit .cell{font-size:8.5px;padding:3px 5px}.fit .rw{font-size:9.5px;padding:2px}.fit{grid-template-columns:86px repeat(4,1fr);gap:3px}
+  .slider-row select{font-size:9.5px!important;padding:2px 4px!important}.slider-row label{font-size:9.5px}.legend{font-size:9px;gap:8px;margin:2px 0}.note{font-size:8.5px}
+  .pin{grid-template-columns:repeat(3,1fr)!important}
+  .be span{font-size:9px;padding:2px 5px}.banner{margin:6px 0;padding:4px 8px;font-size:9.5px}.box{padding:6px 8px}.head img{height:30px}
+  .app{display:block}.panel,.toolbar,.no-print,.tip{display:none!important}
+  main{padding:0}
+  .print-only{display:block}
+  .cards{grid-template-columns:repeat(4,1fr);gap:6px}
+  .card{padding:7px}.big{font-size:17px}
+  section{margin-top:12px;break-inside:avoid}
+  .box,.card,.fit,table{break-inside:avoid}
+  .grid2{grid-template-columns:1.25fr 1fr;gap:8px}
+  details>*{display:block}
+  details:not([open])>*:not(summary){display:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pin{display:grid;grid-template-columns:repeat(4,1fr);gap:2px 14px;font-size:10px;border:1px solid var(--line);padding:6px 8px;border-radius:4px}
+  .pin div{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<!-- ===================== INPUTS ===================== -->
+<aside class="panel" aria-label="Inputs">
+  <div class="legend-gold"><i></i>Gold fields are editable. Nothing is saved in this file.</div>
+
+  <h3>Cash need</h3>
+  <div class="f"><label for="i_cash">Cash needed</label><input id="i_cash" type="text" inputmode="numeric" data-key="cash" data-fmt="money"></div>
+  <div class="f"><label for="i_years">Time horizon <b id="o_years"></b></label><input id="i_years" type="range" min="1" max="10" step="1" data-key="years" data-fmt="int"></div>
+  <div class="f"><label for="i_purpose">Purpose</label><select id="i_purpose" data-key="purpose">
+    <option value="home">Home purchase</option><option value="tax">Tax bill</option><option value="investment">Investment</option><option value="other">Other</option></select></div>
+
+  <h3>Portfolio</h3>
+  <div class="f"><label for="i_port">Portfolio value</label><input id="i_port" type="text" inputmode="numeric" data-key="portfolio" data-fmt="money"></div>
+  <div class="f"><label for="i_basis">Cost basis</label><input id="i_basis" type="text" inputmode="numeric" data-key="basis" data-fmt="money"></div>
+  <div class="f"><label for="i_lt">Gains that are long-term (%)</label><input id="i_lt" type="number" min="0" max="100" step="5" data-key="ltShare" data-fmt="pct"></div>
+  <div class="f"><label for="i_conc">Largest single position (% of portfolio)</label><input id="i_conc" type="number" min="0" max="100" step="5" data-key="conc" data-fmt="pct"></div>
+  <div class="f"><label for="i_ret">Expected return (%/yr)</label><input id="i_ret" type="number" step="0.25" data-key="ret" data-fmt="pct"></div>
+  <div class="f"><label for="i_vol">Volatility (%/yr)</label><input id="i_vol" type="number" min="0" step="1" data-key="vol" data-fmt="pct"></div>
+
+  <h3>Tax profile (2026)</h3>
+  <div class="f"><label for="i_fs">Filing status</label><select id="i_fs" data-key="filing">
+    <option value="mfj">Married filing jointly</option><option value="single">Single</option><option value="hoh">Head of household</option><option value="mfs">Married filing separately</option></select></div>
+  <div class="f"><label for="i_inc">Taxable income<small>ordinary, before the gains below</small></label><input id="i_inc" type="text" inputmode="numeric" data-key="income" data-fmt="money"></div>
+  <div class="f"><label for="i_state">State</label><select id="i_state" data-key="state">
+    <option value="CA">California (FTB brackets)</option><option value="OTHER">Other state (flat rate)</option><option value="NONE">No state income tax</option></select></div>
+  <div class="f"><label for="i_srate">Other-state rate (%)</label><input id="i_srate" type="number" min="0" step="0.25" data-key="stateRate" data-fmt="pct"></div>
+  <div class="f"><label for="i_gains">Capital gains per year from other sources<small>long-term; available to absorb losses</small></label><input id="i_gains" type="text" inputmode="numeric" data-key="otherGains" data-fmt="money"></div>
+  <div class="f"><label for="i_nii">Ordinary investment income per year<small>interest, non-qualified dividends; caps the investment-interest deduction</small></label><input id="i_nii" type="text" inputmode="numeric" data-key="invIncome" data-fmt="money"></div>
+  <div class="f"><label for="i_item">Itemizes deductions</label><span class="chk"><input id="i_item" type="checkbox" data-key="itemize"></span></div>
+
+  <h3>Rates</h3>
+  <div class="f"><label for="i_asof">Rates last updated</label><input id="i_asof" type="date" data-key="ratesAsOf"></div>
+  <div class="stale" id="stale" role="status"></div>
+  <div class="f"><label for="i_rbox">Box spread implied rate (%)</label><input id="i_rbox" type="number" step="0.01" data-key="rBox" data-fmt="pct"></div>
+  <div class="rate-src" id="src_box"></div>
+  <div class="f"><label for="i_rpal">PAL rate (%)</label><input id="i_rpal" type="number" step="0.01" data-key="rPal" data-fmt="pct"></div>
+  <div class="rate-src" id="src_pal"></div>
+  <div class="f"><label for="i_rmort">Mortgage rate, 30-yr fixed (%)</label><input id="i_rmort" type="number" step="0.01" data-key="rMort" data-fmt="pct"></div>
+  <div class="rate-src" id="src_mort"></div>
+  <div class="f"><label for="i_rheloc">HELOC rate (%)</label><input id="i_rheloc" type="number" step="0.01" data-key="rHeloc" data-fmt="pct"></div>
+  <div class="rate-src" id="src_heloc"></div>
+  <button class="btn ghost small" id="btnCurve" type="button">Set box rate from Treasury curve for this horizon</button>
+
+  <h3>Home loan</h3>
+  <div class="f"><label for="i_ltype">Loan type</label><select id="i_ltype" data-key="loanType"><option value="mortgage">Mortgage (30-yr amortizing)</option><option value="heloc">HELOC (interest-only)</option></select></div>
+  <div class="f"><label for="i_ccm">Mortgage closing costs (% of loan)</label><input id="i_ccm" type="number" min="0" step="0.25" data-key="ccMort" data-fmt="pct"></div>
+  <div class="f"><label for="i_cch">HELOC closing costs (% of line)</label><input id="i_cch" type="number" min="0" step="0.25" data-key="ccHeloc" data-fmt="pct"></div>
+  <div class="f"><label for="i_exist">Existing home acquisition debt</label><input id="i_exist" type="text" inputmode="numeric" data-key="existingDebt" data-fmt="money"></div>
+
+  <h3>Margin &amp; collateral</h3>
+  <div class="f"><label for="i_mtype">Margin type (box spread)</label><select id="i_mtype" data-key="marginType"><option value="regt">Reg T</option><option value="pm">Portfolio margin</option></select></div>
+  <div class="f"><label for="i_maint">Maintenance requirement (%)<small id="maintNote"></small></label><input id="i_maint" type="number" min="1" max="99" step="1" data-key="maint" data-fmt="pct"></div>
+  <div class="f"><label for="i_adv">PAL lending value (% of collateral)<small>call when loan exceeds this share</small></label><input id="i_adv" type="number" min="1" max="99" step="1" data-key="palAdvance" data-fmt="pct"></div>
+</aside>
+
+<!-- ===================== OUTPUT ===================== -->
+<main>
+  <div class="head">
+    <img alt="Tidemark Financial Partners" src="data:image/png;base64,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">
+    <div class="ttl"><h1>Borrow vs. Sell</h1><p>Four ways to raise cash, side by side</p></div>
+  </div>
+  <div class="toolbar">
+    <button class="btn ghost" id="btnCsv" type="button">Export CSV</button>
+    <button class="btn" id="btnPrint" type="button">Print (letter)</button>
+  </div>
+  <div class="banner" id="banner"></div>
+  <div class="print-only"><div class="pin" id="printInputs"></div></div>
+
+  <section aria-labelledby="h_cards">
+    <h2 id="h_cards">1. The four options</h2>
+    <p class="sub">Each cost sits next to its main risk. Borrowing against a portfolio can force sales at a loss if markets fall.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section aria-labelledby="h_tax">
+    <h2 id="h_tax">2. Tax savings: after-tax borrowing rates</h2>
+    <p class="sub">Light bar = stated rate. Solid bar = rate after the tax effect modeled for these inputs. A tax saving that depends on an unsettled position (box spread) or on a deduction that may not apply is not assured.</p>
+    <div class="grid2">
+      <div class="box"><div id="taxBar"></div><div id="taxDiff" class="be"></div></div>
+      <div class="box">
+        <h3>Box spread: where the capital loss goes</h3>
+        <p class="sub" style="margin:2px 0 6px">Implied interest is modeled as a Section 1256 loss (60% long-term / 40% short-term, marked to market each year-end). It offsets capital gains first; without gains only <b id="lossLim"></b> per year offsets ordinary income and the rest carries forward. <span class="warn">Confirm the tax treatment with the client's CPA.</span></p>
+        <div id="boxTable"></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h_be">
+    <h2 id="h_be">3. Break-even: where borrowing beats selling, and where it loses</h2>
+    <p class="sub">Net worth = portfolio minus loan balance, with every dollar of interest, payments, closing costs and tax savings carried at the portfolio return. Choose below whether the loan is repaid by selling stock at the end (tax paid then) or stays in place (the gain stays untaxed).</p>
+    <div class="box">
+      <div class="slider-row no-print">
+        <label for="s_ret"><b>Portfolio return</b></label>
+        <input id="s_ret" type="range" min="-10" max="15" step="0.25" data-key="ret" data-fmt="pct" aria-describedby="h_be">
+        <output id="o_ret"></output>
+      </div>
+      <div class="slider-row" style="grid-template-columns:auto auto 1fr">
+        <label for="i_exit"><b>At the end of the horizon</b></label>
+        <select id="i_exit" data-key="exit" style="padding:5px 7px;border:1px solid var(--gold-line);background:var(--gold-bg);border-radius:4px;font:600 13px var(--sans);color:var(--navy)">
+          <option value="sell">Stock is sold to repay the loan (tax paid then)</option>
+          <option value="hold">Loan stays in place or is repaid from other cash</option></select>
+        <span class="note" id="exitNote"></span>
+      </div>
+      <div class="be" id="beChips"></div>
+      <div class="grid2" style="margin-top:8px">
+        <div>
+          <h3 id="nwTitle"></h3>
+          <div class="legend" id="nwLegend"></div>
+          <div id="nwChart"></div>
+        </div>
+        <div>
+          <h3 id="advTitle"></h3>
+          <p class="sub" style="margin:2px 0 4px">Above zero the borrowing path ends ahead of selling. Below zero it ends behind.</p>
+          <div id="advChart"></div>
+        </div>
+      </div>
+      <details><summary>Net worth by year (table)</summary><div id="nwTable"></div></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h_risk">
+    <h2 id="h_risk">4. Margin-call gauge and stress test</h2>
+    <p class="sub">How far the portfolio can fall before the lender or broker demands cash or sells holdings. Stress markers at &minus;20%, &minus;35% and &minus;50%. A mortgage or a sale carries no margin call.</p>
+    <div class="box">
+      <div id="gauge"></div>
+      <div id="stressTable" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h_fit">
+    <h2 id="h_fit">5. When each one fits</h2>
+    <p class="sub">A cell lights up when its condition is met on the current inputs. These are conditions, not a recommendation; the advisor and client weigh them together.</p>
+    <div class="fit" id="fit"></div>
+  </section>
+
+  <div class="foot">
+    <div class="sig">Frank Alvarez, Financial Consultant | Tidemark Financial Partners</div>
+    <div class="hyp">Hypothetical illustration. Not tax, legal or investment advice.</div>
+    <div id="footDate"></div>
+    <h4>How the numbers are built</h4>
+    <ol id="method"></ol>
+    <h4>Tax rules and sources</h4>
+    <ol id="taxSrc"></ol>
+    <h4>Rate sources</h4>
+    <ol id="rateSrc"></ol>
+    <p>The projections and illustrations in this tool are hypothetical in nature. They are based on the assumptions and methodology described here, including the assumed rate of return, volatility, borrowing rates, tax rates, loan terms and time horizon shown in the inputs, and on the information provided. They do not reflect actual investment results and are not guarantees of future outcomes. Results will vary with each use and over time as assumptions and market conditions change. No specific investments are considered; the portfolio is modeled as a single asset. Actual returns may be higher or lower than those illustrated, and losses are possible. Borrowing against securities involves risk, including forced liquidation of holdings at a loss; lenders and brokers may change rates, collateral requirements and terms at any time.</p>
+    <p>Tidemark, LLC does not provide legal or tax advice. This material is not intended as, and should not be relied upon for, tax or legal advice. Please consult your attorney or tax professional regarding your specific situation. Investment advisory services offered through Tidemark, LLC, an SEC-registered investment adviser. Registration does not imply a certain level of skill or training.</p>
+  </div>
+</main>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function(){
+'use strict';
+/* ============================================================
+   DATA: every rate carries an as-of date and a source.
+   ============================================================ */
+var RATES = {
+  retrieved: '2026-11-17',
+  treasury: { asOf:'2026-11-13', source:'U.S. Treasury, Daily Treasury Par Yield Curve Rates', curve:{1:4.65,2:4.88,3:4.92,5:4.98,7:5.05,10:5.15} },
+  boxSpread: { spreadPct:0.30, asOf:'2026-11-13', source:'Treasury yield at the horizon + 0.30%. Cboe reports SPX box spreads averaged about 0.26% over 3-month Treasuries in 2025; published ranges run roughly 0.10%-0.50%.' },
+  pal: { sofr:3.88, sofrAsOf:'2026-11-09', spread:3.40, source:'SOFR 3.88% (NY Fed, 11/09/2026) + 3.40% (Schwab Pledged Asset Line schedule for $500K-$1M as reported by third-party trackers, 11/09/2026). Lender pricing varies by loan size and relationship.' },
+  mortgage: { rate:7.11, asOf:'2026-11-12', source:'Freddie Mac Primary Mortgage Market Survey, 30-year fixed average, week of 11/12/2026' },
+  heloc: { rate:7.83, asOf:'2026-11-17', source:'Curinos national average adjustable HELOC rate via Yahoo Finance, 11/17/2026 (Bankrate survey: 7.49%, 11/11/2026)' }
+};
+var TAX = {
+  year: 2026,
+  ord: { // Rev. Proc. 2025-32
+    single:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
+    mfj:[[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]],
+    hoh:[[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]],
+    mfs:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[384350,.35],[Infinity,.37]]
+  },
+  ltcg: { single:[49450,545500], mfj:[98900,613700], hoh:[66200,579600], mfs:[49450,306850] },
+  niitRate: 0.038,
+  niitThr: { single:200000, mfj:250000, hoh:200000, mfs:125000 },
+  lossLimit: { single:3000, mfj:3000, hoh:3000, mfs:1500 },
+  acqLimit: { single:750000, mfj:750000, hoh:750000, mfs:375000 },
+  caYear: 2025, // latest FTB schedules published at build time
+  ca: {
+    single:[[11079,.01],[26264,.02],[41452,.04],[57542,.06],[72724,.08],[371479,.093],[445771,.103],[742953,.113],[Infinity,.123]],
+    mfj:[[22158,.01],[52528,.02],[82904,.04],[115084,.06],[145448,.08],[742958,.093],[891542,.103],[1485906,.113],[Infinity,.123]],
+    hoh:[[22173,.01],[52530,.02],[67716,.04],[83805,.06],[98990,.08],[505208,.093],[606251,.103],[1010417,.113],[Infinity,.123]]
+  },
+  caMhsThr: 1000000, caMhsRate: 0.01,
+  caAcqLimit: { single:1000000, mfj:1000000, hoh:1000000, mfs:500000 }
+};
+TAX.ca.mfs = TAX.ca.single;
+var MAINT_DEFAULT = { regt:0.30, pm:0.15 };
+var COL = { box:'#006298', pal:'#C8571B', mort:'#1F8A70', sell:'#1B365D' };
+var NAME = { box:'Box spread loan', pal:'Pledged asset line', sell:'Sell stock', mort:'Mortgage' };
+
+function curveRate(years){
+  var c=RATES.treasury.curve, ks=Object.keys(c).map(Number).sort(function(a,b){return a-b;});
+  if(years<=ks[0]) return c[ks[0]];
+  for(var i=1;i<ks.length;i++){ if(years<=ks[i]){ var a=ks[i-1],b=ks[i]; return c[a]+(c[b]-c[a])*(years-a)/(b-a); } }
+  return c[ks[ks.length-1]];
+}
+
+/* ============================================================
+   STATE (defaults are generic; no client data lives in this file)
+   ============================================================ */
+var state = {
+  cash:500000, years:3, purpose:'other', exit:'sell',
+  portfolio:2000000, basis:400000, ltShare:1, conc:0.20, ret:0.07, vol:0.16,
+  filing:'mfj', income:350000, state:'CA', stateRate:0.05, otherGains:40000, invIncome:15000, itemize:true,
+  ratesAsOf:RATES.retrieved,
+  rBox:Math.round((curveRate(3)+RATES.boxSpread.spreadPct)*100)/10000,
+  rPal:Math.round((RATES.pal.sofr+RATES.pal.spread)*100)/10000,
+  rMort:RATES.mortgage.rate/100, rHeloc:RATES.heloc.rate/100,
+  loanType:'mortgage', ccMort:0.02, ccHeloc:0.005, existingDebt:0,
+  marginType:'regt', maint:MAINT_DEFAULT.regt, palAdvance:0.70
+};
+
+/* ============================================================
+   ENGINE (pure functions of the state)
+   ============================================================ */
+function bracketTax(x, br){
+  var t=0, lo=0;
+  for(var i=0;i<br.length;i++){ var hi=br[i][0], r=br[i][1]; if(x>lo){ t+=(Math.min(x,hi)-lo)*r; lo=hi; } else break; }
+  return t;
+}
+function fedTax(fs, ord, st, lt){
+  var ordTot=Math.max(0, ord+st), t=bracketTax(ordTot, TAX.ord[fs]);
+  var z=TAX.ltcg[fs], top=ordTot+lt;
+  var in15=Math.max(0, Math.min(top, z[1]) - Math.max(ordTot, z[0]));
+  var in20=Math.max(0, top - Math.max(ordTot, z[1]));
+  return t + 0.15*in15 + 0.20*in20;
+}
+function caTax(fs, x){ return bracketTax(x, TAX.ca[fs]) + TAX.caMhsRate*Math.max(0, x-TAX.caMhsThr); }
+
+/* One tax year. o = {st, lt, invInt, mortFed, mortState, cf:{st,lt}} (cf = loss carried in, positive numbers) */
+function yearTax(s, o){
+  var fs=s.filing, cfIn=o.cf||{st:0,lt:0};
+  var st=(o.st||0)-cfIn.st, lt=(o.lt||0)-cfIn.lt, x;
+  if(st<0 && lt>0){ x=Math.min(-st,lt); st+=x; lt-=x; }
+  if(lt<0 && st>0){ x=Math.min(-lt,st); lt+=x; st-=x; }
+  var lossDed=0, cf={st:0,lt:0};
+  if(st<0 || lt<0){
+    var lim=TAX.lossLimit[fs], uS=Math.min(Math.max(0,-st),lim), uL=Math.min(Math.max(0,-lt),lim-uS);
+    lossDed=uS+uL; cf={st:Math.max(0,-st)-uS, lt:Math.max(0,-lt)-uL}; st=0; lt=0;
+  }
+  var invInt=o.invInt||0, mF=o.mortFed||0, mS=o.mortState||0;
+  var fed=fedTax(fs, Math.max(0, s.income-invInt-mF-lossDed), st, lt);
+  var magi=s.income+st+lt-lossDed;
+  var nii=Math.max(0, s.invIncome+st+lt-lossDed-invInt);
+  var niit=TAX.niitRate*Math.min(nii, Math.max(0, magi-TAX.niitThr[fs]));
+  var sb=Math.max(0, s.income-invInt-mS-lossDed+st+lt);
+  var stt = s.state==='CA' ? caTax(fs,sb) : (s.state==='OTHER' ? s.stateRate*sb : 0);
+  return { total:fed+niit+stt, fed:fed, niit:niit, state:stt, lossDed:lossDed, cf:cf };
+}
+
+function Phi(z){ // standard normal CDF (Abramowitz-Stegun 7.1.26)
+  var x=Math.abs(z)/Math.SQRT2, t=1/(1+0.3275911*x);
+  var e=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return z>=0 ? 0.5*(1+e) : 0.5*(1-e);
+}
+/* chance a lognormal portfolio touches b (fraction of today's value) within T years */
+function hitProb(b, ret, vol, T){
+  if(b>=1) return 1; if(b<=0) return 0;
+  var mu=Math.log(1+ret)-vol*vol/2, lb=Math.log(b);
+  if(vol<=0) return (Math.pow(1+ret,T)<=b)?1:0;
+  var sd=vol*Math.sqrt(T);
+  return Math.min(1, Phi((lb-mu*T)/sd) + Math.exp(2*mu*lb/(vol*vol))*Phi((lb+mu*T)/sd));
+}
+
+function compute(s){
+  var C=Math.max(1,s.cash), N=Math.max(1,Math.round(s.years)), P=Math.max(1,s.portfolio), G=Math.max(0,s.otherGains);
+  var base=yearTax(s,{lt:G});
+  var out={ C:C, N:N, P:P, base:base };
+
+  /* ---- SELL: gross-up so net proceeds after tax equal the cash needed ---- */
+  var g=(P-s.basis)/P;
+  function sellTax(S){ var gain=S*g; return yearTax(s,{st:(1-s.ltShare)*gain, lt:G+s.ltShare*gain}); }
+  var lo=0, hi=Math.max(P,C)*4, mid, i;
+  for(i=0;i<80;i++){ mid=(lo+hi)/2; if(mid-(sellTax(mid).total-base.total) < C) lo=mid; else hi=mid; }
+  var S=(lo+hi)/2, stx=sellTax(S), taxToday=stx.total-base.total;
+  var lost=taxToday*(Math.pow(1+s.ret,N)-1);
+  out.sell={ S:S, gain:S*g, tax:taxToday, fed:stx.fed-base.fed, niit:stx.niit-base.niit, state:stx.state-base.state,
+    lostGrowth:lost, total:taxToday+lost, annual:(taxToday+lost)/N, oop:0, feasible:S<=P, effRate:taxToday/C, pctSold:S/P };
+
+  /* ---- BOX SPREAD: implied interest = Section 1256 capital loss, 60/40, marked to market yearly ---- */
+  var rb=s.rBox, cf={st:0,lt:0}, bal=C, rows=[], k, t, sav, loss, bInt=0, bSav=0;
+  for(k=1;k<=N;k++){
+    loss=bal*rb;
+    t=yearTax(s,{st:-0.4*loss, lt:G-0.6*loss, cf:cf});
+    sav=base.total-t.total;
+    var avail=loss+cf.st+cf.lt, cfo=t.cf.st+t.cf.lt;
+    rows.push({year:k, loss:loss, absorbed:avail-t.lossDed-cfo, ordDed:t.lossDed, carry:cfo, saving:sav});
+    cf=t.cf; bal+=loss; bInt+=loss; bSav+=sav;
+  }
+  out.box={ rate:rb, rows:rows, interest:bInt, savings:bSav, total:bInt-bSav, annual:(bInt-bSav)/N,
+    afterRate: bInt>0 ? rb*(bInt-bSav)/bInt : rb, oop:0, face:bal, carryEnd:cf.st+cf.lt, flows:rows.map(function(r){return -r.saving;}) };
+
+  /* ---- PAL: investment interest only if traced to taxable investments AND itemizing, capped at net investment income ---- */
+  var rp=s.rPal, palDed=(s.purpose==='investment' && s.itemize), cfI=0, pRows=[], pInt=0, pSav=0, pDedTot=0;
+  for(k=1;k<=N;k++){
+    var int_=C*rp, d=0;
+    if(palDed){ var av=int_+cfI; d=Math.min(av, Math.max(0,s.invIncome)); cfI=av-d; }
+    t=yearTax(s,{lt:G, invInt:d}); sav=base.total-t.total;
+    pRows.push({year:k, interest:int_, deducted:d, saving:sav}); pInt+=int_; pSav+=sav; pDedTot+=d;
+  }
+  out.pal={ rate:rp, rows:pRows, interest:pInt, savings:pSav, total:pInt-pSav, annual:(pInt-pSav)/N,
+    afterRate: pInt>0 ? rp*(pInt-pSav)/pInt : rp, oop:pInt, deductible:palDed, deducted:pDedTot, carryEnd:cfI,
+    reason: palDed ? (pDedTot<pInt-0.5 ? 'Deduction capped at ordinary investment income; excess carries forward' : 'Modeled as investment interest (traced to taxable investments, itemizing)')
+           : (s.purpose!=='investment' ? 'Not deductible: proceeds not traced to taxable investments' : 'Not deductible: not itemizing'),
+    flows:pRows.map(function(r){return r.interest-r.saving;}) };
+
+  /* ---- MORTGAGE / HELOC ---- */
+  var isM=(s.loanType==='mortgage'), rm=isM?s.rMort:s.rHeloc, im=rm/12, cc=C*(isM?s.ccMort:s.ccHeloc);
+  var pmt = isM ? (im>0 ? C*im/(1-Math.pow(1+im,-360)) : C/360) : 0;
+  var mDed=(s.purpose==='home' && s.itemize);
+  var limF=Math.max(0, TAX.acqLimit[s.filing]-s.existingDebt);
+  var limS=Math.max(0, (s.state==='CA'?TAX.caAcqLimit[s.filing]:TAX.acqLimit[s.filing])-s.existingDebt);
+  var fF=mDed?Math.min(1,limF/C):0, fS=mDed?Math.min(1,limS/C):0;
+  var mb=C, mRows=[], mInt=0, mSav=0, mPay=0, m;
+  for(k=1;k<=N;k++){
+    var yi=0, yp=0;
+    for(m=0;m<12;m++){ var mi=mb*im, pr=isM?(pmt-mi):0; yi+=mi; yp+=pr; mb-=pr; }
+    t=yearTax(s,{lt:G, mortFed:yi*fF, mortState:yi*fS}); sav=base.total-t.total;
+    mRows.push({year:k, interest:yi, principal:yp, balance:mb, saving:sav}); mInt+=yi; mSav+=sav; mPay+=yi+yp;
+  }
+  out.mort={ type:s.loanType, rate:rm, closing:cc, rows:mRows, interest:mInt, savings:mSav, total:cc+mInt-mSav, annual:(cc+mInt-mSav)/N,
+    afterRate: mInt>0 ? rm*(mInt-mSav)/mInt : rm, oop:cc+mPay, balEnd:mb, payment:isM?pmt:C*im, deductible:mDed, fracFed:fF, fracState:fS,
+    reason: mDed ? (fF<1 ? 'Deductible on the first '+money(limF)+' of acquisition debt ('+pct(fF,0)+' of interest, federal)' : 'Modeled as deductible home acquisition interest (secured by the home, itemizing)')
+           : (s.purpose!=='home' ? 'Not deductible: proceeds not used to buy, build or improve the home' : 'Not deductible: not itemizing'),
+    flows:mRows.map(function(r){return r.interest+r.principal-r.saving;}) };
+
+  /* ---- NET WORTH PATHS at portfolio return r ---- */
+  /* tax if stock is sold at the end of the horizon to repay a securities-backed loan (all gains long-term by then) */
+  function exitTax(r, loan, carry){
+    var V=P*Math.pow(1+r,N), gN=(V-s.basis)/V, a=0, b=4*Math.max(V,loan), c, j;
+    for(j=0;j<80;j++){ c=(a+b)/2; if(c-(yearTax(s,{lt:G+c*gN, cf:carry}).total-base.total) < loan) a=c; else b=c; }
+    return (a+b)/2-loan;
+  }
+  var boxCarry=cf;
+  function paths(r){
+    var q=1+r, o={sell:[P-S], box:[P-C], pal:[P-C], mort:[P-C-cc]}, aB=0, aP=0, aM=cc, y;
+    for(y=1;y<=N;y++){
+      var pv=P*Math.pow(q,y);
+      aB=aB*q+out.box.flows[y-1]; aP=aP*q+out.pal.flows[y-1]; aM=aM*q+out.mort.flows[y-1];
+      o.sell.push((P-S)*Math.pow(q,y));
+      o.box.push(pv-C*Math.pow(1+rb,y)-aB);
+      o.pal.push(pv-C-aP);
+      o.mort.push(pv-mRows[y-1].balance-aM);
+    }
+    o.exit={ box:exitTax(r,out.box.face,boxCarry), pal:exitTax(r,C,{st:0,lt:0}), mort:exitTax(r,mRows[N-1].balance,{st:0,lt:0}) };
+    var sellOut=(s.exit==='sell');
+    o.end={ sell:o.sell[N], box:o.box[N]-(sellOut?o.exit.box:0), pal:o.pal[N]-(sellOut?o.exit.pal:0), mort:o.mort[N]-(sellOut?o.exit.mort:0) };
+    return o;
+  }
+  out.paths=paths; out.nw=paths(s.ret);
+  function breakeven(key){
+    function f(r){ var p=paths(r); return p.end[key]-p.end.sell; }
+    var a=-0.5, b=0.5, fa=f(a), fb=f(b), c, j;
+    if(fa*fb>0) return null;
+    for(j=0;j<80;j++){ c=(a+b)/2; if(f(c)*fa>0) a=c; else b=c; }
+    return (a+b)/2;
+  }
+  out.box.breakeven=breakeven('box'); out.pal.breakeven=breakeven('pal'); out.mort.breakeven=breakeven('mort');
+  ['box','pal','mort'].forEach(function(key){ out[key].advantage=out.nw.end[key]-out.nw.end.sell; out[key].exitTax=out.nw.exit[key]; });
+
+  /* ---- RISK: loan-to-value, margin-call trigger, stress test ---- */
+  function risk(loan, share, kind){ // share = max loan / collateral value before a call
+    var trig=1-loan/(share*P);
+    return { loan:loan, ltv:loan/P, callDrop:trig, capacity:share*P,
+      prob:hitProb(loan/(share*P), s.ret, s.vol, N),
+      stress:[0.20,0.35,0.50].map(function(dr){
+        var pv=P*(1-dr), call=loan>share*pv+1e-9, cure=Math.max(0, loan-share*pv);
+        return { drop:dr, value:pv, ltv:loan/pv, call:call, cure:cure, sale:call?Math.min(pv, cure/(1-share)):0 };
+      }) };
+  }
+  out.risk={ box:risk(out.box.face, 1-s.maint), pal:risk(C, s.palAdvance) };
+  out.risk.box.initOk = C <= (s.marginType==='regt'?0.5:(1-s.maint))*P;
+  out.risk.pal.initOk = C <= s.palAdvance*P;
+
+  /* ---- "WHEN EACH ONE FITS" conditions ---- */
+  var gainPct=Math.max(0,g), l1=rows[0].loss;
+  out.fit=[
+    { row:'Amount', cells:{
+      box:{on:out.risk.box.callDrop>=0.35, text:'Call cushion of 35% or more. Now: '+dropTxt(out.risk.box.callDrop)},
+      pal:{on:out.risk.pal.callDrop>=0.35, text:'Call cushion of 35% or more. Now: '+dropTxt(out.risk.pal.callDrop)},
+      sell:{on:out.sell.feasible && out.sell.pctSold<=0.5, text:'Sale is half the portfolio or less. Now: '+pct(out.sell.pctSold,0)+' sold'},
+      mort:{on:C+s.existingDebt<=TAX.acqLimit[s.filing], text:'Loan within the '+money(TAX.acqLimit[s.filing])+' acquisition-debt limit'} } },
+    { row:'Horizon', cells:{
+      box:{on:N<=5, text:'5 years or less; listed index options rarely run longer, so a longer need means rolling at a new rate'},
+      pal:{on:N<=3, text:'3 years or less; the rate floats and resets with SOFR'},
+      sell:{on:N>=7, text:'7 years or more; no loan to carry, renew or repay'},
+      mort:{on:N>=5, text:'5 years or more to spread closing costs. Now: '+money(out.mort.closing/N)+' per year'} } },
+    { row:'Concentration', cells:{
+      box:{on:s.conc<=0.30, text:'Largest position 30% or less; concentrated collateral draws higher margin requirements'},
+      pal:{on:s.conc<=0.30, text:'Largest position 30% or less; lenders cut lending value on concentrated collateral'},
+      sell:{on:s.conc>=0.30, text:'Largest position 30% or more; a sale can also reduce single-stock exposure'},
+      mort:{on:true, text:'Not secured by the portfolio; no margin call'} } },
+    { row:'Tax offset', cells:{
+      box:{on:G>=l1, text:'Other gains cover the yearly loss. Now: '+money(G)+' of gains vs '+money(l1)+' loss in year 1'},
+      pal:{on:palDed && pDedTot>=pInt-0.5, text:'Interest fully deductible as investment interest (traced, itemizing, within investment income)'},
+      sell:{on:out.sell.effRate<=0.10, text:'Tax is 10% or less of the cash raised. Now: '+pct(out.sell.effRate,1)},
+      mort:{on:mDed && fF>=1, text:'Interest fully deductible (secured, home use, within limit, itemizing)'} } },
+    { row:'Purpose', cells:{
+      box:{on:true, text:'Proceeds can be used for any purpose'},
+      pal:{on:s.purpose!=='investment', text:'Non-purpose loan: proceeds cannot buy or carry securities'},
+      sell:{on:true, text:'Proceeds can be used for any purpose'},
+      mort:{on:s.purpose==='home', text:'Home purchase or improvement'} } }
+  ];
+  return out;
+}
+
+/* ============================================================
+   FORMATTING
+   ============================================================ */
+function money(x){ if(x==null||!isFinite(x)) return 'n/a'; var n=Math.round(x); return (n<0?'-$':'$')+Math.abs(n).toLocaleString('en-US'); }
+function moneyK(x){ var a=Math.abs(x), sgn=x<0?'-':''; if(a>=1e6) return sgn+'$'+(a/1e6).toFixed(a>=1e7?1:2)+'M'; if(a>=1e3) return sgn+'$'+Math.round(a/1e3)+'K'; return sgn+'$'+Math.round(a); }
+function pct(x,d){ if(x==null||!isFinite(x)) return 'n/a'; return (x*100).toFixed(d==null?2:d)+'%'; }
+function dropTxt(d){ return d<=0 ? 'already at the call level' : (d>=1?'no call':'call at a '+pct(d,0)+' drop'); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function niceDate(iso){ var p=String(iso).split('-'); return p.length===3 ? p[1]+'/'+p[2]+'/'+p[0] : iso; }
+function $(id){ return document.getElementById(id); }
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+var last=null;
+function recompute(){
+  last=compute(state); api.last=last;
+  syncControls(); renderBanner(); renderCards(); renderTax(); renderBreakeven(); renderRisk(); renderFit(); renderPrintInputs();
+}
+
+function renderBanner(){
+  var r=last, msgs=[];
+  msgs.push('<b>'+money(r.C)+'</b> needed for <b>'+r.N+' year'+(r.N>1?'s':'')+'</b> against a <b>'+money(r.P)+'</b> portfolio with <b>'+money(state.basis)+'</b> basis.');
+  if(!r.sell.feasible) msgs.push('<span class="warn">Selling cannot raise this amount after tax from this portfolio.</span>');
+  if(!r.risk.box.initOk) msgs.push('<span class="warn">Box spread: loan exceeds the initial borrowing capacity of this margin account.</span>');
+  if(!r.risk.pal.initOk) msgs.push('<span class="warn">PAL: loan exceeds the lending value of the collateral.</span>');
+  $('banner').innerHTML=msgs.join(' ');
+  var days=Math.floor((Date.now()-new Date(state.ratesAsOf+'T00:00:00').getTime())/864e5), st=$('stale');
+  if(isFinite(days) && days>14){ st.className='stale on'; st.textContent='Rates are '+days+' days old. Update the rates and the date before using.'; } else { st.className='stale'; st.textContent=''; }
+  $('footDate').textContent='Rates last updated '+niceDate(state.ratesAsOf)+'. Federal figures: tax year '+TAX.year+'. California brackets: '+TAX.caYear+' FTB schedules.';
+}
+
+function card(key, tag, bigs, kvs, risk, when){
+  return '<div class="card" style="--c:'+COL[key]+'"><h3>'+esc(NAME[key]=== 'Mortgage' && state.loanType==='heloc' ? 'HELOC' : NAME[key])+'</h3><div class="tag">'+tag+'</div>'+
+    bigs.map(function(b){return '<div class="biglab">'+b[0]+'</div><div class="big" data-out="'+key+'.'+b[2]+'">'+b[1]+'</div>';}).join('')+
+    '<div style="margin-top:8px">'+kvs.map(function(k){return '<div class="kv"><span>'+k[0]+'</span><b>'+k[1]+'</b></div>';}).join('')+'</div>'+
+    '<div class="pair"><div class="blk risk"><b class="h">Key risk</b>'+risk+'</div><div class="blk when"><b class="h">Best when</b>'+when+'</div></div></div>';
+}
+function beTxt(b){ return b==null ? 'none in range' : pct(b,2); }
+function renderCards(){
+  var r=last, b=r.box, p=r.pal, m=r.mort, s=r.sell, rk=r.risk, N=r.N;
+  var h='';
+  h+=card('box','Sell a European-style index option box; repay the face amount at expiry',
+    [['After-tax cost per year',money(b.annual),'annual'],['Total after-tax cost, '+N+' yr',money(b.total),'total']],
+    [['Implied rate / after tax',pct(b.rate)+' / '+pct(b.afterRate)],['Implied interest',money(b.interest)],['Modeled tax savings',money(b.savings)],
+     ['Cash out of pocket','$0 until expiry'],['Due at expiry (face)',money(b.face)],['Tax if stock is sold to repay then',money(b.exitTax)],['Break-even return vs selling',beTxt(b.breakeven)]],
+    'Margin call if the portfolio falls '+pct(Math.max(0,rk.box.callDrop),0)+'; holdings can be sold at a loss. Tax treatment is not settled: confirm with the CPA. Must repay or roll at expiry at the then-current rate.',
+    'The loan is small relative to the portfolio, the need is a few years, and there are capital gains for the loss to offset.');
+  h+=card('pal','Securities-backed line of credit; floating rate; interest paid as you go',
+    [['After-tax cost per year',money(p.annual),'annual'],['Total after-tax cost, '+N+' yr',money(p.total),'total']],
+    [['Rate / after tax',pct(p.rate)+' / '+pct(p.afterRate)],['Interest',money(p.interest)],['Modeled tax savings',money(p.savings)],
+     ['Cash out of pocket',money(p.oop)],['Principal still owed',money(r.C)],['Tax if stock is sold to repay then',money(p.exitTax)],['Break-even return vs selling',beTxt(p.breakeven)]],
+    'Margin call if the portfolio falls '+pct(Math.max(0,rk.pal.callDrop),0)+'; holdings can be sold at a loss. Rate floats; the lender can change terms or demand repayment. '+esc(p.reason)+'.',
+    'The need is short, flexibility to draw and repay matters, and the loan is a modest share of the collateral.');
+  h+=card('sell','Sell enough to net the cash after tax; no debt',
+    [['After-tax cost per year',money(s.annual),'annual'],['Total cost, '+N+' yr',money(s.total),'total']],
+    [['Stock sold',money(s.S)+' ('+pct(s.pctSold,0)+')'],['Tax paid today',money(s.tax)],['&nbsp;&nbsp;Federal / NIIT / state',moneyK(s.fed)+' / '+moneyK(s.niit)+' / '+moneyK(s.state)],
+     ['Lost growth on tax dollars',money(s.lostGrowth)],['Cash out of pocket','$0 (tax from proceeds)'],['Tax as % of cash raised',pct(s.effRate,1)]],
+    'The tax is paid now and is permanent. '+money(s.S)+' leaves the market, so the cost grows if the portfolio rises. Gains sold give up any later step-up in basis.',
+    'The embedded gain is small, the need is long or permanent, or a single position is a large share of the portfolio.');
+  h+=card('mort', state.loanType==='mortgage' ? '30-year fixed, secured by the home; monthly principal and interest' : 'Interest-only line secured by the home; variable rate',
+    [['After-tax cost per year',money(m.annual),'annual'],['Total after-tax cost, '+N+' yr',money(m.total),'total']],
+    [['Rate / after tax',pct(m.rate)+' / '+pct(m.afterRate)],['Interest + closing costs',money(m.interest)+' + '+money(m.closing)],['Modeled tax savings',money(m.savings)],
+     ['Cash out of pocket',money(m.oop)],['Balance after '+N+' yr',money(m.balEnd)],['Tax if stock is sold to repay then',money(m.exitTax)],['Break-even return vs selling',beTxt(m.breakeven)]],
+    'The home is the collateral and payments of '+money(m.payment)+' a month are required whatever markets do. Closing costs are sunk. '+esc(m.reason)+'.',
+    'The cash buys or improves a home, the horizon is long, and the client itemizes.');
+  $('cards').innerHTML=h;
+}
+
+/* ---- visual 2: tax savings bar ---- */
+function renderTax(){
+  var r=last, items=[['box',r.box],['pal',r.pal],['mort',r.mort]], W=600, rowH=58, left=118, right=215, top=22;
+  var max=Math.max.apply(null, items.map(function(it){return it[1].rate;}))*1.08 || 0.1, pw=W-left-right;
+  function x(v){ return left+pw*Math.max(0,v)/max; }
+  var svg='<svg viewBox="0 0 '+W+' '+(top+rowH*3+26)+'" role="img" aria-label="Stated and after-tax borrowing rates">';
+  var ticks=[0,0.02,0.04,0.06,0.08,0.10,0.12].filter(function(v){return v<=max;});
+  ticks.forEach(function(v){ svg+='<line x1="'+x(v)+'" x2="'+x(v)+'" y1="'+top+'" y2="'+(top+rowH*3)+'" stroke="#e6eaee"/><text x="'+x(v)+'" y="'+(top+rowH*3+14)+'" text-anchor="middle">'+(v*100).toFixed(0)+'%</text>'; });
+  items.forEach(function(it,i){
+    var k=it[0], o=it[1], y=top+i*rowH+8, nm=(k==='mort'&&state.loanType==='heloc')?'HELOC':(k==='box'?'Box spread':k==='pal'?'PAL':'Mortgage');
+    var ann=(o.interest-o.savings)/r.N, savY=o.savings/r.N;
+    svg+='<text x="'+(left-8)+'" y="'+(y+15)+'" text-anchor="end" style="font-weight:600;fill:#1c2530;font-size:12px">'+nm+'</text>';
+    svg+='<text x="'+(left-8)+'" y="'+(y+30)+'" text-anchor="end" style="font-size:10.5px">'+money(ann)+'/yr</text>';
+    svg+='<path d="M'+left+' '+y+'H'+(x(o.rate)-4)+'a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H'+left+'Z" fill="'+COL[k]+'" opacity=".22"/>';
+    svg+='<path d="M'+left+' '+(y+18)+'H'+(Math.max(left+4,x(o.afterRate))-4)+'a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H'+left+'Z" fill="'+COL[k]+'"/>';
+    svg+='<text x="'+(x(o.rate)+6)+'" y="'+(y+12)+'">'+pct(o.rate)+' stated</text>';
+    svg+='<text x="'+(x(o.afterRate)+6)+'" y="'+(y+33)+'" style="font-weight:700;fill:#1c2530;font-size:12px">'+pct(o.afterRate)+' after tax</text>';
+    svg+='<text x="'+(x(o.afterRate)+6)+'" y="'+(y+46)+'" style="font-size:10.5px">'+(savY>0.5?'tax saving '+money(savY)+'/yr':'no tax saving')+'</text>';
+    svg+='<rect class="hit" data-tip="'+esc(nm+'|Stated rate|'+pct(o.rate)+'|After-tax rate|'+pct(o.afterRate)+'|Interest per year (avg)|'+money(o.interest/r.N)+'|Tax saving per year (avg)|'+money(savY)+'|After-tax interest per year|'+money(ann))+'" x="0" y="'+(y-6)+'" width="'+W+'" height="'+(rowH-2)+'" fill="transparent"/>';
+  });
+  svg+='<line x1="'+left+'" x2="'+left+'" y1="'+top+'" y2="'+(top+rowH*3)+'" stroke="#9aa4ae"/></svg>';
+  $('taxBar').innerHTML=svg;
+  function a(o){ return (o.interest-o.savings)/r.N; }
+  function diff(n1,o1,n2,o2,c){ var d=a(o1)-a(o2); return '<span style="--c:'+c+'">'+n1+' vs '+n2+': <b>'+(Math.abs(d)<0.5?'no difference':money(Math.abs(d))+'/yr '+(d<0?'less':'more'))+'</b></span>'; }
+  var mn=state.loanType==='heloc'?'HELOC':'mortgage';
+  $('taxDiff').innerHTML='<span style="--c:#7a8490;border-left-color:#7a8490">After-tax interest, average per year (closing costs excluded)</span>'+
+    diff('Box spread',r.box,'PAL',r.pal,COL.box)+diff('Box spread',r.box,mn,r.mort,COL.box)+diff('PAL',r.pal,mn,r.mort,COL.pal);
+  $('lossLim').textContent=money(TAX.lossLimit[state.filing]);
+  var t='<table><thead><tr><th>Year</th><th>Implied interest (loss)</th><th>Offsets capital gains</th><th>Offsets ordinary income</th><th>Carried forward</th><th>Tax saving</th></tr></thead><tbody>';
+  r.box.rows.forEach(function(w){ t+='<tr><td>'+w.year+'</td><td>'+money(w.loss)+'</td><td>'+money(w.absorbed)+'</td><td>'+money(w.ordDed)+'</td><td>'+money(w.carry)+'</td><td>'+money(w.saving)+'</td></tr>'; });
+  t+='<tr><td><b>Total</b></td><td><b>'+money(r.box.interest)+'</b></td><td></td><td></td><td>'+(r.box.carryEnd>0.5?'<span class="warn">'+money(r.box.carryEnd)+' unused</span>':'$0')+'</td><td><b>'+money(r.box.savings)+'</b></td></tr></tbody></table>';
+  if(r.box.carryEnd>0.5) t+='<p class="note" style="margin-top:6px">Without enough capital gains, '+money(r.box.carryEnd)+' of the loss is still unused at the end of the horizon. It has value only if future gains or the yearly '+money(TAX.lossLimit[state.filing])+' allowance absorb it.</p>';
+  $('boxTable').innerHTML=t;
+}
+
+/* ---- visual 3: break-even ---- */
+function niceTicks(lo,hi,n){
+  var span=hi-lo||1, raw=span/n, mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), f=raw/mag, step=(f<1.5?1:f<3?2:f<7?5:10)*mag, t=[], v=Math.ceil(lo/step)*step;
+  for(;v<=hi+1e-9;v+=step) t.push(Math.abs(v)<1e-9?0:v);
+  return t;
+}
+function renderBreakeven(){
+  var r=last, N=r.N, keys=['sell','box','pal','mort'], nw=r.nw, mn=state.loanType==='heloc'?'HELOC':'Mortgage';
+  var lab={sell:'Sell',box:'Box spread',pal:'PAL',mort:mn};
+  $('o_ret').textContent=pct(state.ret,2);
+  $('nwTitle').textContent='Net worth over '+N+' year'+(N>1?'s':'')+' at a '+pct(state.ret,2)+' portfolio return';
+  $('advTitle').textContent='Borrowing minus selling after '+N+' year'+(N>1?'s':'')+', by portfolio return';
+  $('beChips').innerHTML=['box','pal','mort'].map(function(k){
+    var b=r[k].breakeven, adv=r[k].advantage;
+    return '<span style="--c:'+COL[k]+'">'+lab[k]+' breaks even with selling at <b>'+beTxt(b)+'</b>. At '+pct(state.ret,2)+': <b>'+money(Math.abs(adv))+(adv>=0?' ahead':' behind')+'</b></span>';
+  }).join('');
+  $('nwLegend').innerHTML=keys.map(function(k){return '<span><i class="'+(k==='sell'?'dash':'')+'" style="--c:'+COL[k]+'"></i>'+lab[k]+'</span>';}).join('');
+
+  var W=620,H=300,L=58,R=92,T=12,B=30, all=[]; keys.forEach(function(k){ all=all.concat(nw[k]); });
+  keys.forEach(function(k){ all.push(nw.end[k]); });
+  var lo=Math.min.apply(null,all), hi=Math.max.apply(null,all), pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  function X(t){ return L+(W-L-R)*t/N; } function Y(v){ return T+(H-T-B)*(1-(v-lo)/(hi-lo)); }
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Net worth by year for the four paths">';
+  niceTicks(lo,hi,5).forEach(function(v){ svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#e6eaee"/><text x="'+(L-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+moneyK(v)+'</text>'; });
+  for(var t=0;t<=N;t++) svg+='<text x="'+X(t)+'" y="'+(H-10)+'" text-anchor="middle">'+(t===0?'Today':'Yr '+t)+'</text>';
+  var ends=[];
+  keys.forEach(function(k){
+    var d=nw[k].map(function(v,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);}).join('');
+    svg+='<path d="'+d+'" fill="none" stroke="'+COL[k]+'" stroke-width="2.25" stroke-linejoin="round"'+(k==='sell'?' stroke-dasharray="6 4"':'')+'/>';
+    svg+='<circle cx="'+X(N)+'" cy="'+Y(nw[k][N])+'" r="4" fill="'+COL[k]+'" stroke="#fff" stroke-width="2"/>';
+    if(Math.abs(nw.end[k]-nw[k][N])>0.5){
+      svg+='<line x1="'+X(N)+'" x2="'+X(N)+'" y1="'+Y(nw[k][N])+'" y2="'+Y(nw.end[k])+'" stroke="'+COL[k]+'" stroke-width="2" stroke-dasharray="2 3"/><circle cx="'+X(N)+'" cy="'+Y(nw.end[k])+'" r="4.5" fill="#fff" stroke="'+COL[k]+'" stroke-width="2.5"/>';
+    }
+    ends.push({k:k,y:Y(nw.end[k]),v:nw.end[k]});
+  });
+  ends.sort(function(a,b){return a.y-b.y;});
+  for(var i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<24) ends[i].y=ends[i-1].y+24;
+  var over=ends[ends.length-1].y-(H-B-10); if(over>0) ends.forEach(function(e){e.y-=over;});
+  ends.forEach(function(e){ svg+='<text x="'+(X(N)+9)+'" y="'+(e.y-1)+'" style="font-weight:600;fill:#1c2530">'+lab[e.k]+'</text><text x="'+(X(N)+9)+'" y="'+(e.y+11)+'">'+moneyK(e.v)+'</text>'; });
+  svg+='<line id="nwX" x1="0" x2="0" y1="'+T+'" y2="'+(H-B)+'" stroke="#7a8490" stroke-dasharray="3 3" visibility="hidden"/>';
+  svg+='<rect id="nwHit" x="'+L+'" y="'+T+'" width="'+(W-L-R)+'" height="'+(H-T-B)+'" fill="transparent"/></svg>';
+  $('nwChart').innerHTML=svg;
+  var hit=$('nwHit'), xl=$('nwX');
+  hit.addEventListener('mousemove',function(ev){
+    var bb=hit.getBoundingClientRect(), t=Math.max(0,Math.min(N,Math.round((ev.clientX-bb.left)/bb.width*N)));
+    xl.setAttribute('x1',X(t)); xl.setAttribute('x2',X(t)); xl.setAttribute('visibility','visible');
+    showTip(ev,'<b>'+(t===0?'Today':'Year '+t)+'</b>'+keys.map(function(k){return '<div class="r"><span><i style="--c:'+COL[k]+'"></i>'+lab[k]+'</span><span>'+money(nw[k][t])+'</span></div>';}).join(''));
+  });
+  hit.addEventListener('mouseleave',function(){ xl.setAttribute('visibility','hidden'); hideTip(); });
+
+  /* advantage vs return */
+  var rs=[], rr; for(rr=-0.10; rr<=0.1501; rr+=0.005) rs.push(Math.round(rr*1000)/1000);
+  var ser={box:[],pal:[],mort:[]}, av=[];
+  rs.forEach(function(q){ var p=r.paths(q); ['box','pal','mort'].forEach(function(k){ var v=p.end[k]-p.end.sell; ser[k].push(v); av.push(v); }); });
+  var W2=480,H2=300,L2=58,R2=14,T2=12,B2=30, lo2=Math.min(0,Math.min.apply(null,av)), hi2=Math.max(0,Math.max.apply(null,av)), pd=(hi2-lo2)*0.08||1; lo2-=pd; hi2+=pd;
+  function X2(q){ return L2+(W2-L2-R2)*(q+0.10)/0.25; } function Y2(v){ return T2+(H2-T2-B2)*(1-(v-lo2)/(hi2-lo2)); }
+  var s2='<svg viewBox="0 0 '+W2+' '+H2+'" role="img" aria-label="Borrowing advantage over selling by portfolio return">';
+  s2+='<rect x="'+L2+'" y="'+T2+'" width="'+(W2-L2-R2)+'" height="'+(Y2(0)-T2)+'" fill="#E8F3EC" opacity=".55"/><rect x="'+L2+'" y="'+Y2(0)+'" width="'+(W2-L2-R2)+'" height="'+(H2-B2-Y2(0))+'" fill="#FBEAE8" opacity=".6"/>';
+  niceTicks(lo2,hi2,5).forEach(function(v){ s2+='<line x1="'+L2+'" x2="'+(W2-R2)+'" y1="'+Y2(v)+'" y2="'+Y2(v)+'" stroke="#fff"/><text x="'+(L2-6)+'" y="'+(Y2(v)+4)+'" text-anchor="end">'+moneyK(v)+'</text>'; });
+  [-0.10,-0.05,0,0.05,0.10,0.15].forEach(function(q){ s2+='<text x="'+X2(q)+'" y="'+(H2-10)+'" text-anchor="middle">'+(q*100).toFixed(0)+'%</text>'; });
+  s2+='<line x1="'+L2+'" x2="'+(W2-R2)+'" y1="'+Y2(0)+'" y2="'+Y2(0)+'" stroke="#4a5562" stroke-width="1.2"/>';
+  s2+='<text x="'+(L2+6)+'" y="'+(T2+13)+'" style="fill:#1F6F43;font-weight:600">Borrowing ends ahead</text><text x="'+(L2+6)+'" y="'+(H2-B2-6)+'" style="fill:#B3261E;font-weight:600">Borrowing ends behind</text>';
+  ['box','pal','mort'].forEach(function(k){
+    s2+='<path d="'+ser[k].map(function(v,i){return (i?'L':'M')+X2(rs[i]).toFixed(1)+' '+Y2(v).toFixed(1);}).join('')+'" fill="none" stroke="'+COL[k]+'" stroke-width="2.25"/>';
+    var b=r[k].breakeven; if(b!=null && b>=-0.10 && b<=0.15) s2+='<circle cx="'+X2(b)+'" cy="'+Y2(0)+'" r="4.5" fill="#fff" stroke="'+COL[k]+'" stroke-width="2.5"/>';
+  });
+  var cr=Math.max(-0.10,Math.min(0.15,state.ret));
+  s2+='<line x1="'+X2(cr)+'" x2="'+X2(cr)+'" y1="'+T2+'" y2="'+(H2-B2)+'" stroke="#B8860B" stroke-width="2"/><text x="'+(X2(cr)+(cr>0.11?-5:5))+'" y="'+(T2+28)+'" text-anchor="'+(cr>0.11?'end':'start')+'" style="fill:#8a6508;font-weight:700">'+pct(state.ret,2)+'</text>';
+  s2+='<rect id="advHit" x="'+L2+'" y="'+T2+'" width="'+(W2-L2-R2)+'" height="'+(H2-T2-B2)+'" fill="transparent"/></svg>';
+  $('advChart').innerHTML=s2;
+  var ah=$('advHit');
+  ah.addEventListener('mousemove',function(ev){
+    var bb=ah.getBoundingClientRect(), i=Math.max(0,Math.min(rs.length-1,Math.round((ev.clientX-bb.left)/bb.width*(rs.length-1))));
+    showTip(ev,'<b>Return '+pct(rs[i],1)+'</b>'+['box','pal','mort'].map(function(k){return '<div class="r"><span><i style="--c:'+COL[k]+'"></i>'+lab[k]+'</span><span>'+money(ser[k][i])+'</span></div>';}).join('')+'<div style="color:#7a8490;margin-top:3px">vs selling, after '+N+' yr</div>');
+  });
+  ah.addEventListener('mouseleave',hideTip);
+
+  var tb='<table><thead><tr><th>Year</th>'+keys.map(function(k){return '<th>'+lab[k]+'</th>';}).join('')+'</tr></thead><tbody>';
+  for(t=0;t<=N;t++) tb+='<tr><td>'+(t===0?'Today':t)+'</td>'+keys.map(function(k){return '<td>'+money(nw[k][t])+'</td>';}).join('')+'</tr>';
+  if(state.exit==='sell') tb+='<tr><td>After selling to repay</td>'+keys.map(function(k){return '<td>'+money(nw.end[k])+'</td>';}).join('')+'</tr>';
+  $('nwTable').innerHTML=tb+'</tbody></table>';
+  $('exitNote').textContent=state.exit==='sell' ? 'Hollow markers show net worth after the sale. Tax at '+pct(state.ret,2)+': box '+money(nw.exit.box)+', PAL '+money(nw.exit.pal)+', '+mn.toLowerCase()+' '+money(nw.exit.mort)+'.' : 'The deferred gain is still untaxed. Tax if stock were sold to repay at '+pct(state.ret,2)+': box '+money(nw.exit.box)+', PAL '+money(nw.exit.pal)+', '+mn.toLowerCase()+' '+money(nw.exit.mort)+'.';
+}
+
+/* ---- visual 4: gauge + stress ---- */
+function renderRisk(){
+  var r=last, rows=[['box','Box spread loan',r.risk.box,'face amount due at expiry, '+pct(state.maint,0)+' maintenance ('+(state.marginType==='regt'?'Reg T':'portfolio margin')+')'],
+                    ['pal','Pledged asset line',r.risk.pal,'loan balance, '+pct(state.palAdvance,0)+' lending value']];
+  var W=900, L=20, R=20, rowH=124, MAXD=0.70, pw=W-L-R;
+  function X(d){ return L+pw*Math.min(MAXD,Math.max(0,d))/MAXD; }
+  var svg='<svg viewBox="0 0 '+W+' '+(rowH*2+8)+'" role="img" aria-label="Margin call gauge with stress test markers">'+
+    '<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#FBEAE8"/><line x1="0" y1="0" x2="0" y2="7" stroke="#B3261E" stroke-width="2" opacity=".55"/></pattern></defs>';
+  rows.forEach(function(row,i){
+    var k=row[0], o=row[2], y0=i*rowH+38, trig=o.callDrop, tx=X(trig);
+    svg+='<text x="'+L+'" y="'+(y0-24)+'" style="font-weight:700;fill:#1B365D;font-size:13px">'+row[1]+'</text>';
+    svg+='<text x="'+(L+150)+'" y="'+(y0-24)+'">Loan-to-value '+pct(o.ltv,0)+' ('+row[3]+'). Modeled chance of reaching the call level within '+r.N+' yr: '+(o.prob<0.005?'under 1%':pct(o.prob,0))+'</text>';
+    svg+='<rect x="'+L+'" y="'+y0+'" width="'+pw+'" height="26" rx="4" fill="#DDE6EE"/>';
+    if(trig<MAXD) svg+='<rect x="'+(trig>0?tx:L)+'" y="'+y0+'" width="'+(W-R-(trig>0?tx:L))+'" height="26" fill="url(#hatch)"/>';
+    [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7].forEach(function(d){ svg+='<line x1="'+X(d)+'" x2="'+X(d)+'" y1="'+(y0+26)+'" y2="'+(y0+31)+'" stroke="#9aa4ae"/>'; });
+    if(trig>0 && trig<MAXD){
+      svg+='<line x1="'+tx+'" x2="'+tx+'" y1="'+(y0-6)+'" y2="'+(y0+32)+'" stroke="#B3261E" stroke-width="3"/>';
+      var anc=trig>0.5?'end':'start';
+      svg+='<text x="'+(tx+(anc==='end'?-8:8))+'" y="'+(y0-10)+'" text-anchor="'+anc+'" style="font-weight:700;fill:#B3261E;font-size:12px">Margin call at -'+pct(trig,0)+'</text>';
+      svg+='<text x="'+(L+8)+'" y="'+(y0+17)+'" style="font-weight:600;fill:#1B365D">No call</text>';
+      if(trig<0.58) svg+='<text x="'+(W-R-8)+'" y="'+(y0+17)+'" text-anchor="end" style="font-weight:700;fill:#B3261E">Margin call zone</text>';
+    } else if(trig>=MAXD){
+      svg+='<text x="'+(W-R-6)+'" y="'+(y0+17)+'" text-anchor="end" style="font-weight:700;fill:#1c2530;font-size:12px">No call within -70% (trigger at -'+pct(trig,0)+')</text>';
+    } else {
+      svg+='<text x="'+(L+8)+'" y="'+(y0+17)+'" style="font-weight:700;fill:#B3261E;font-size:12px">Already at or beyond the call level</text>';
+    }
+    o.stress.forEach(function(sx){
+      var x=X(sx.drop);
+      svg+='<path d="M'+x+' '+(y0+27)+'l-6 10h12Z" fill="'+(sx.call?'#B3261E':'#1F6F43')+'" stroke="#fff" stroke-width="1.5"/>';
+      svg+='<text x="'+x+'" y="'+(y0+51)+'" text-anchor="middle" style="font-weight:700;fill:#1c2530">-'+pct(sx.drop,0)+'</text>';
+      svg+='<text x="'+x+'" y="'+(y0+64)+'" text-anchor="middle" style="font-weight:700;fill:'+(sx.call?'#B3261E':'#1F6F43')+'">'+(sx.call?'✖ CALL':'✔ OK')+' · LTV '+pct(sx.ltv,0)+'</text>';
+      if(sx.call) svg+='<text x="'+x+'" y="'+(y0+77)+'" text-anchor="middle">'+(sx.sale>=sx.value-0.5?'loan exceeds collateral':'sell '+moneyK(sx.sale)+' to cure')+'</text>';
+      svg+='<rect class="hit" data-tip="'+esc(row[1]+' at -'+pct(sx.drop,0)+'|Portfolio value|'+money(sx.value)+'|Loan|'+money(o.loan)+'|Loan-to-value|'+pct(sx.ltv,1)+'|Status|'+(sx.call?'Margin call':'No call')+'|Cash to cure|'+money(sx.cure)+'|Or forced sale|'+money(sx.sale))+'" x="'+(x-60)+'" y="'+(y0-4)+'" width="120" height="86" fill="transparent"/>';
+    });
+    svg+='<text x="'+L+'" y="'+(y0+44)+'" style="font-size:10px">0%</text>';
+  });
+  svg+='</svg>';
+  $('gauge').innerHTML=svg;
+  var t='<table><thead><tr><th>Portfolio falls</th><th>Portfolio value</th><th>Box: LTV</th><th>Box: status</th><th>Box: forced sale to cure</th><th>PAL: LTV</th><th>PAL: status</th><th>PAL: forced sale to cure</th></tr></thead><tbody>';
+  for(var i=0;i<3;i++){ var b=r.risk.box.stress[i], p=r.risk.pal.stress[i];
+    t+='<tr><td>-'+pct(b.drop,0)+'</td><td>'+money(b.value)+'</td><td>'+pct(b.ltv,0)+'</td><td class="'+(b.call?'call':'okc')+'">'+(b.call?'Margin call':'No call')+'</td><td>'+(b.call?money(b.sale):'$0')+'</td><td>'+pct(p.ltv,0)+'</td><td class="'+(p.call?'call':'okc')+'">'+(p.call?'Margin call':'No call')+'</td><td>'+(p.call?money(p.sale):'$0')+'</td></tr>'; }
+  t+='</tbody></table><p class="note" style="margin-top:6px">A forced sale happens at depressed prices and can itself trigger capital gains tax on low-basis shares. Brokers and lenders can raise requirements without notice, which moves the trigger closer.</p>';
+  $('stressTable').innerHTML=t;
+}
+
+/* ---- visual 5: decision strip ---- */
+function renderFit(){
+  var keys=['box','pal','sell','mort'], h='<div></div>';
+  keys.forEach(function(k){ h+='<div class="hd" style="--c:'+COL[k]+'">'+(k==='mort'&&state.loanType==='heloc'?'HELOC':NAME[k])+'</div>'; });
+  last.fit.forEach(function(row){
+    h+='<div class="rw">'+row.row+'</div>';
+    keys.forEach(function(k){ var c=row.cells[k]; h+='<div class="cell'+(c.on?' on':'')+'" style="--c:'+COL[k]+'" data-fit="'+row.row+'.'+k+'"><span class="st">'+(c.on?'● Condition met':'○ Not met')+'</span>'+esc(c.text)+'</div>'; });
+  });
+  $('fit').innerHTML=h;
+}
+
+var LABELS=[['cash','Cash needed','m'],['years','Horizon (yrs)','i'],['purpose','Purpose','s'],['exit','At end of horizon','s'],['portfolio','Portfolio value','m'],['basis','Cost basis','m'],['ltShare','Long-term share of gains','p'],['conc','Largest position','p'],['ret','Expected return','p'],['vol','Volatility','p'],
+  ['filing','Filing status','s'],['income','Taxable income','m'],['state','State','s'],['stateRate','Other-state rate','p'],['otherGains','Other capital gains / yr','m'],['invIncome','Ordinary investment income / yr','m'],['itemize','Itemizes','b'],
+  ['ratesAsOf','Rates last updated','s'],['rBox','Box spread rate','p'],['rPal','PAL rate','p'],['rMort','Mortgage rate','p'],['rHeloc','HELOC rate','p'],['loanType','Home loan type','s'],['ccMort','Mortgage closing costs','p'],['ccHeloc','HELOC closing costs','p'],['existingDebt','Existing acquisition debt','m'],
+  ['marginType','Margin type','s'],['maint','Maintenance requirement','p'],['palAdvance','PAL lending value','p']];
+function fmtVal(k,t){ var v=state[k];
+  if(t==='s'){ var el=document.querySelector('select[data-key="'+k+'"]'); if(el && el.selectedIndex>=0) return el.options[el.selectedIndex].text; return k==='ratesAsOf'?niceDate(v):String(v); }
+  return t==='m'?money(v):t==='p'?pct(v,2):t==='b'?(v?'Yes':'No'):String(v); }
+function renderPrintInputs(){ $('printInputs').innerHTML=LABELS.map(function(l){return '<div><span>'+l[1]+'</span><b>'+esc(fmtVal(l[0],l[2]))+'</b></div>';}).join(''); }
+
+/* ---- tooltip ---- */
+function showTip(ev, html){ var t=$('tip'); t.innerHTML=html; t.style.display='block';
+  var w=t.offsetWidth||180, x=ev.clientX+14, y=ev.clientY+14; if(x+w>window.innerWidth-8) x=ev.clientX-w-14; t.style.left=x+'px'; t.style.top=y+'px'; }
+function hideTip(){ $('tip').style.display='none'; }
+document.addEventListener('mousemove',function(ev){
+  var el=ev.target; if(!el || !el.getAttribute || !el.getAttribute('data-tip')) { if(el && el.id!=='nwHit' && el.id!=='advHit') hideTip(); return; }
+  var p=el.getAttribute('data-tip').split('|'), h='<b>'+esc(p[0])+'</b>';
+  for(var i=1;i<p.length;i+=2) h+='<div class="r"><span>'+esc(p[i])+'</span><span>'+esc(p[i+1])+'</span></div>';
+  showTip(ev,h);
+});
+
+/* ============================================================
+   CONTROLS: every control writes to state and calls recompute()
+   ============================================================ */
+var controls=[].slice.call(document.querySelectorAll('[data-key]'));
+function readControl(el){
+  var k=el.getAttribute('data-key'), f=el.getAttribute('data-fmt'), v;
+  if(el.type==='checkbox') v=el.checked;
+  else if(f==='money'){ v=parseFloat(String(el.value).replace(/[^0-9.\-]/g,'')); if(!isFinite(v)) v=0; v=Math.max(0,v); }
+  else if(f==='pct'){ v=parseFloat(el.value); if(!isFinite(v)) v=0; v=v/100; }
+  else if(f==='int'){ v=parseInt(el.value,10)||1; }
+  else v=el.value;
+  state[k]=v;
+  if(k==='marginType') state.maint=MAINT_DEFAULT[v];
+}
+function writeControl(el){
+  var k=el.getAttribute('data-key'), f=el.getAttribute('data-fmt'), v=state[k];
+  if(el.type==='checkbox') el.checked=!!v;
+  else if(f==='money') el.value=Math.round(v).toLocaleString('en-US');
+  else if(f==='pct') el.value=String(Math.round(v*1e6)/1e4);
+  else el.value=v;
+}
+function syncControls(){
+  controls.forEach(function(el){ if(el!==document.activeElement) writeControl(el); });
+  $('o_years').textContent=state.years+' yr';
+  $('i_srate').disabled=(state.state!=='OTHER');
+  $('maintNote').textContent=state.marginType==='regt'?'regulatory minimum 25%; broker house levels are often 30% or more':'risk-based; about 15% for diversified equity, more if concentrated';
+  $('src_box').textContent=curveRateNote();
+  $('src_pal').textContent=RATES.pal.source;
+  $('src_mort').textContent=RATES.mortgage.source+': '+RATES.mortgage.rate.toFixed(2)+'%';
+  $('src_heloc').textContent=RATES.heloc.source;
+}
+function curveRateNote(){ var y=curveRate(state.years); return state.years+'-yr Treasury '+y.toFixed(2)+'% ('+niceDate(RATES.treasury.asOf)+', '+RATES.treasury.source+') + '+RATES.boxSpread.spreadPct.toFixed(2)+'% = '+(y+RATES.boxSpread.spreadPct).toFixed(2)+'%'; }
+controls.forEach(function(el){
+  function h(){ readControl(el); recompute(); }
+  el.addEventListener('input',h); el.addEventListener('change',h);
+  el.addEventListener('blur',function(){ writeControl(el); });
+});
+$('btnCurve').addEventListener('click',function(){ state.rBox=Math.round((curveRate(state.years)+RATES.boxSpread.spreadPct)*100)/10000; state.ratesAsOf=RATES.retrieved; recompute(); });
+$('btnPrint').addEventListener('click',function(){ window.print(); });
+
+/* ---- CSV ---- */
+function buildCSV(){
+  var r=last, L=[], q=function(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }, row=function(a){ L.push(a.map(q).join(',')); }, n=function(x){ return x==null?'':(Math.round(x*100)/100); };
+  row(['Borrow vs. Sell','Tidemark Financial Partners']); row(['Hypothetical illustration. Not tax, legal or investment advice.']); row([]);
+  row(['INPUTS']); LABELS.forEach(function(l){ row([l[1], l[2]==='p'?n(state[l[0]]*100)+'%':(l[2]==='b'?(state[l[0]]?'Yes':'No'):state[l[0]])]); }); row([]);
+  row(['SUMMARY','Box spread loan','Pledged asset line','Sell stock',state.loanType==='heloc'?'HELOC':'Mortgage']);
+  row(['After-tax cost per year',n(r.box.annual),n(r.pal.annual),n(r.sell.annual),n(r.mort.annual)]);
+  row(['Total after-tax cost',n(r.box.total),n(r.pal.total),n(r.sell.total),n(r.mort.total)]);
+  row(['Cash out of pocket',n(r.box.oop),n(r.pal.oop),n(r.sell.oop),n(r.mort.oop)]);
+  row(['Stated rate %',n(r.box.rate*100),n(r.pal.rate*100),'',n(r.mort.rate*100)]);
+  row(['After-tax rate %',n(r.box.afterRate*100),n(r.pal.afterRate*100),'',n(r.mort.afterRate*100)]);
+  row(['Interest',n(r.box.interest),n(r.pal.interest),'',n(r.mort.interest)]);
+  row(['Modeled tax savings',n(r.box.savings),n(r.pal.savings),'',n(r.mort.savings)]);
+  row(['Break-even portfolio return vs selling %',r.box.breakeven==null?'':n(r.box.breakeven*100),r.pal.breakeven==null?'':n(r.pal.breakeven*100),'',r.mort.breakeven==null?'':n(r.mort.breakeven*100)]);
+  row(['Tax if stock is sold to repay at the end',n(r.box.exitTax),n(r.pal.exitTax),'',n(r.mort.exitTax)]);
+  row(['Stock sold','','',n(r.sell.S),'']); row(['Tax paid today','','',n(r.sell.tax),'']); row(['Lost growth on tax dollars','','',n(r.sell.lostGrowth),'']);
+  row(['Loan-to-value %',n(r.risk.box.ltv*100),n(r.risk.pal.ltv*100),'','']);
+  row(['Portfolio drop that triggers a margin call %',n(r.risk.box.callDrop*100),n(r.risk.pal.callDrop*100),'','']); row([]);
+  row(['STRESS TEST','Portfolio value','Box LTV %','Box call','Box forced sale','PAL LTV %','PAL call','PAL forced sale']);
+  for(var i=0;i<3;i++){ var b=r.risk.box.stress[i], p=r.risk.pal.stress[i]; row(['-'+(b.drop*100)+'%',n(b.value),n(b.ltv*100),b.call?'Yes':'No',n(b.sale),n(p.ltv*100),p.call?'Yes':'No',n(p.sale)]); } row([]);
+  row(['BOX SPREAD LOSS','Implied interest','Offsets capital gains','Offsets ordinary income','Carried forward','Tax saving']);
+  r.box.rows.forEach(function(w){ row(['Year '+w.year,n(w.loss),n(w.absorbed),n(w.ordDed),n(w.carry),n(w.saving)]); }); row([]);
+  row(['NET WORTH at '+n(state.ret*100)+'% return','Sell','Box spread','PAL',state.loanType==='heloc'?'HELOC':'Mortgage']);
+  for(var t=0;t<=r.N;t++) row(['Year '+t,n(r.nw.sell[t]),n(r.nw.box[t]),n(r.nw.pal[t]),n(r.nw.mort[t])]);
+  return L.join('\r\n');
+}
+$('btnCsv').addEventListener('click',function(){
+  var csv=buildCSV(), a=document.createElement('a');
+  try{ a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); }catch(e){ a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); }
+  a.download='borrow-vs-sell.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+});
+
+/* ---- static footnotes ---- */
+function li(id, items){ $(id).innerHTML=items.map(function(t){return '<li>'+t+'</li>';}).join(''); }
+li('method',[
+ 'Every tax figure is the difference between two full-year tax calculations (federal ordinary and capital-gain brackets, 3.8% NIIT, state) with and without the item. Taxable income is used as a stand-in for modified adjusted gross income in the NIIT test.',
+ '<b>Sell:</b> stock sold is grossed up so the proceeds after tax equal the cash needed. Cost = tax paid today + the growth those tax dollars would have earned at the expected return.',
+ '<b>Box spread:</b> implied interest compounds to the face amount due at expiry. Each year\'s accrued interest is a Section 1256 loss, 60% long-term / 40% short-term, netted against other capital gains; any net loss offsets ordinary income up to the annual limit and the rest carries forward. The three-year carryback election for Section 1256 losses is not modeled.',
+ '<b>PAL:</b> interest-only, paid yearly. Deductible only as investment interest: proceeds traced to taxable investments, itemizing, limited to ordinary investment income (no election to include capital gains), excess carried forward. Otherwise non-deductible. A non-purpose line cannot be used to buy or carry securities.',
+ '<b>Mortgage / HELOC:</b> mortgage amortizes monthly over 30 years; HELOC is interest-only. Interest is deductible only when the loan is secured by the home, used to buy, build or improve it, within the acquisition-debt limit (federal $750,000; California $1,000,000) and the client itemizes. Closing costs are paid in cash at the start. Itemizing is taken as given, so each deduction is treated as fully incremental.',
+ '<b>Break-even:</b> the portfolio return at which a borrowing path and the selling path end with the same net worth. With "stock is sold to repay" selected, each borrowing path sells enough stock at the end of the horizon to repay its remaining loan balance and pay the long-term capital gains tax on that sale (any unused box spread loss carryforward is applied first). <b>Margin:</b> a call is modeled when the loan exceeds (1 &minus; maintenance) &times; portfolio value for the box spread (using the face amount due) or lending value &times; portfolio value for the PAL. The chance of reaching the call level assumes lognormal returns with the expected return and volatility entered; it is a model output, not a forecast.',
+ 'Not modeled: AMT, the SALT cap, phase-outs, changes in tax law, wash sales, state treatment that differs from federal, rate changes on floating loans, and taxes due when the borrowing paths eventually sell.'
+]);
+li('taxSrc',[
+ 'Section 1256 contracts (nonequity options, including broad-based index options): marked to market at year-end, 60% long-term / 40% short-term. IRC &sect;1256; IRS Form 6781 and instructions; IRS Publication 550. The IRS has not ruled on box spreads used as financing; <b>confirm treatment with the client\'s CPA</b>.',
+ 'Capital loss limit of $3,000 per year ($1,500 married filing separately) against ordinary income, with unlimited carryforward. IRC &sect;1211(b), &sect;1212(b); IRS Topic No. 409.',
+ '2026 ordinary brackets and 0% / 15% / 20% capital-gain thresholds. IRS Rev. Proc. 2025-32.',
+ 'Net investment income tax, 3.8% on the lesser of net investment income or MAGI over $200,000 single / $250,000 joint / $125,000 separate. IRC &sect;1411; IRS Topic No. 559; Form 8960.',
+ 'Investment interest: itemized deduction limited to net investment income, carryforward of the excess, qualified dividends and long-term gains excluded unless elected. IRC &sect;163(d); IRS Form 4952; Publication 550. Interest follows the use of the loan proceeds (Treas. Reg. &sect;1.163-8T).',
+ 'Home mortgage interest: secured debt used to buy, build or substantially improve the home, up to $750,000 ($375,000 separate), itemizers only; limit made permanent by Public Law 119-21 (2025). IRC &sect;163(h)(3); IRS Publication 936.',
+ 'California: 2025 Form 540 tax rate schedules and the 1% Behavioral Health Services Tax above $1,000,000 (Franchise Tax Board); California taxes capital gains as ordinary income and keeps a $1,000,000 acquisition-debt limit.',
+ 'Margin: Federal Reserve Regulation T (50% initial); FINRA Rule 4210 (25% maintenance minimum for long equities; portfolio margin under 4210(g)). Broker and lender requirements are usually higher.',
+ 'Figures were confirmed on '+niceDate(RATES.retrieved)+' from published summaries of these documents. Re-check irs.gov and ftb.ca.gov before relying on any threshold.'
+]);
+li('rateSrc',[
+ 'Treasury yields: '+RATES.treasury.source+', '+niceDate(RATES.treasury.asOf)+' (1-yr 4.65%, 2-yr 4.88%, 3-yr 4.92%, 5-yr 4.98%, 7-yr 5.05%, 10-yr 5.15%). home.treasury.gov',
+ 'Box spread: '+RATES.boxSpread.source+' go.cboe.com/spx-box-spreads',
+ 'PAL: '+RATES.pal.source,
+ 'Mortgage: '+RATES.mortgage.source+' ('+RATES.mortgage.rate.toFixed(2)+'%). freddiemac.com/pmms',
+ 'HELOC: '+RATES.heloc.source+'.',
+ 'All four rates are editable. Replace them with the client\'s actual quotes and update the "rates last updated" date.'
+]);
+
+var api={ state:state, compute:compute, recompute:recompute, buildCSV:buildCSV, last:null, TAX:TAX, RATES:RATES };
+window.BVS=api;
+recompute();
+})();
+</script>
+</body>
+</html>
