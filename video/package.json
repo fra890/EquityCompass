@@ -21,7 +21,12 @@
     "script:log": "tsx scripts/makeLogScript.ts",
     "render:log:4x5": "remotion render src/index.ts WorkLog4x5 out/work_log_4x5.mp4 --codec=h264 --crf=18",
     "render:log:1x1": "remotion render src/index.ts WorkLog1x1 out/work_log_1x1.mp4 --codec=h264 --crf=18",
-    "render:log": "npm run script:log && npm run render:log:4x5 && npm run render:log:1x1"
+    "render:log": "npm run script:log && npm run render:log:4x5 && npm run render:log:1x1",
+    "stills:espp": "tsx scripts/renderStills.ts espp",
+    "numbers:espp": "tsx scripts/makeEsppDocs.ts",
+    "render:espp:4x5": "remotion render src/index.ts Espp4x5 out/espp_4x5.mp4 --codec=h264 --crf=18",
+    "render:espp:1x1": "remotion render src/index.ts Espp1x1 out/espp_1x1.mp4 --codec=h264 --crf=18",
+    "render:espp": "npm run numbers:espp && npm run render:espp:4x5 && npm run render:espp:1x1"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

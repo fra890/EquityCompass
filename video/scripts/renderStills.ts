@@ -11,6 +11,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
 import * as door from "../src/doorSticker/timeline";
+import * as espp from "../src/espp/timeline";
 import * as iso from "../src/timeline";
 import * as log from "../src/workLog/timeline";
 
@@ -18,6 +19,7 @@ const VIDEOS = {
   iso: { comp: "IsoAmt", prefix: "", t: iso },
   door: { comp: "DoorSticker", prefix: "door_sticker_", t: door },
   log: { comp: "WorkLog", prefix: "work_log_", t: log },
+  espp: { comp: "Espp", prefix: "espp_", t: espp },
 } as const;
 
 const main = async () => {
@@ -25,7 +27,7 @@ const main = async () => {
   const which = (process.argv[2] as keyof typeof VIDEOS) || "iso";
   const only = process.argv[3];
   const v = VIDEOS[which];
-  if (!v) throw new Error(`unknown video "${which}" (use iso, door or log)`);
+  if (!v) throw new Error(`unknown video "${which}" (use iso, door, log or espp)`);
   const timing = v.t.SCENE_TIMING as Record<string, { from: number }>;
   const stillAt = v.t.STILL_AT as Record<string, number[]>;
   const browserExecutable = process.env.REMOTION_CHROME || undefined;

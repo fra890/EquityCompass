@@ -1,14 +1,39 @@
 # Explainer videos (Remotion)
 
-Three animated explainers for native LinkedIn posting, sharing one set of style components
+Four animated explainers for native LinkedIn posting, sharing one set of style components
 (paper background, highlighter swipe, caption system, end card, disclosure card).
 Captions are burned in; there is no narration.
 
 1. **ISO / AMT** (`IsoAmt4x5`, `IsoAmt1x1`) — source in `src/`, ~90s.
 2. **Loaded to the door sticker** (`DoorSticker4x5`, `DoorSticker1x1`) — source in `src/doorSticker/`, ~90s.
 3. **Work log** (`WorkLog4x5`, `WorkLog1x1`) — what a few months of work for one couple were; source in `src/workLog/`, ~90s.
+4. **ESPP dispositions** (`Espp4x5`, `Espp1x1`) — qualifying vs disqualifying sales and how each is taxed; source in `src/espp/`, ~85s.
 
 **DRAFTS. Advertising under the SEC Marketing Rule: each requires CCO approval before use.**
+
+## ESPP dispositions
+
+| File | What |
+| --- | --- |
+| `out/espp_4x5.mp4` | 1080x1350, 30fps, H.264. |
+| `out/espp_1x1.mp4` | 1080x1080 variant, same scenes. |
+| `out/stills/espp_*.png` | One PNG per scene per format. |
+| `numbers_espp.md` | Every computed value and how it was derived. |
+| `voiceover_script_espp.txt` | Timed caption lines. |
+
+```bash
+cd video
+npm install
+npm run numbers:espp        # print the numbers; rewrite numbers_espp.md + voiceover_script_espp.txt
+npm run stills:espp         # review stills -> out/stills/espp_*.png
+npm run render:espp:4x5     # out/espp_4x5.mp4
+npm run render:espp:1x1     # out/espp_1x1.mp4
+npm run render:espp         # numbers + both MP4s
+npm run render:espp:4x5 -- --props='{"music":false}'   # silent cut (music is on by default here)
+```
+
+The hypothetical plan and prices are in `src/espp/model.ts` (look for `FRANK: VERIFY`); no number is typed
+into a scene. Captions and the disclosure are in `src/espp/script.ts`, pacing in `src/espp/timeline.ts`.
 
 ## Work log
 
