@@ -1,3 +1,7 @@
 out/test/
 out/storyboard/raw_*.png
 __pycache__/
+out/frames/
+out/segments/
+out/render.log
+out/temp_music.wav
