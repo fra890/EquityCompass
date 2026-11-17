@@ -1,0 +1,4 @@
+00:00.335  cycles           | WARNING CUEW initialization failed: Error opening the library
+00:00.335  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+beat 5 9x16 1 / 1 avg 13.4 s/frame
+DONE beat 5 9x16 1 frames 13 s

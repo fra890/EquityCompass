@@ -1,0 +1,9 @@
+DRAFT - pending compliance approval
+
+If you work at SpaceX, here is how tax on an RSU vest usually works.
+
+When shares vest, federal income tax is typically withheld at a flat 22%. That is a withholding rate, not your tax rate. If your income puts you in a higher bracket, the difference is still owed when you file.
+
+Example: a $100,000 vest. $22,000 is withheld. At a 37% federal bracket, the tax is $37,000. The $15,000 difference is the gap.
+
+Example figures are hypothetical. Tidemark, LLC is an SEC-registered investment adviser. Registration does not imply a certain level of skill or training. For informational purposes only; not investment, tax or legal advice. Investing involves risk, including loss of principal. Disclosures: tidemarkfp.com

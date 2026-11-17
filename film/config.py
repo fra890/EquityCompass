@@ -18,7 +18,7 @@ COMPANY = os.environ.get("FILM_COMPANY", "SpaceX")
 SHOW_MEDIA_LINE = False
 MEDIA_LINE = "Quoted in Bloomberg, NYT DealBook and Yahoo Finance (2026)"
 
-FPS = 30
+FPS = 24
 DURATION = 40.0
 
 # beat boundaries in seconds
@@ -70,9 +70,9 @@ LABELS = {
 
 # captions: (start, end, text) in film seconds. The hook is caption 0.
 CAPTIONS = [
-    (3.6, 12.0, "22% is withheld. Your bracket may be higher."),
-    (12.6, 22.0, "Lockups. ISOs. AMT. Each one has a date."),
-    (22.6, 32.0, "The plan is deciding before the date, not after."),
+    (3.6, 11.8, "22% is withheld. Your bracket may be higher."),
+    (12.6, 21.8, "Lockups. ISOs. AMT. Each one has a date."),
+    (22.6, 31.7, "The plan is deciding before the date, not after."),
 ]
 
 END = {
