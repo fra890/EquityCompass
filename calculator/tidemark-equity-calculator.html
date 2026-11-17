@@ -163,7 +163,9 @@ footer li{margin:2px 0}
   <section><h2><span class="n">00</span>Grants</h2>
     <p class="lead">Shares, strike and vesting drive everything below. Vesting is modeled as straight-line, released quarterly, between vest start and vest end.</p>
     <div class="tw"><table id="grants"><thead><tr><th>Type</th><th>Shares</th><th>Strike / purchase $</th><th>FMV at grant $</th><th>Grant date</th><th>Vest start</th><th>Vest end</th><th>Vested today</th><th class="noprint"></th></tr></thead><tbody></tbody></table></div>
-    <div class="noprint" style="margin-top:8px"><button class="btn sm" id="addGrant">+ Add grant</button></div>
+    <div class="noprint" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="addGrant">+ Add grant</button>
+      <button class="btn sm solid" id="upBtn">Upload vesting file (.xlsx or .csv)</button><input type="file" id="upFile" accept=".xlsx,.csv" style="display:none">
+      <span class="note" id="upMsg" style="margin:0">Reads a vesting summary export in this browser only. Nothing is sent or saved.</span></div>
   </section>
 
   <section><h2><span class="n">01</span>ISO exercise plan and AMT</h2>
@@ -199,7 +201,7 @@ footer li{margin:2px 0}
     <li>ISO exercises are assumed on December 15 for the current year and January 15 for later years, lowest strike first. All AMT paid is treated as creditable in later years. A later sale of exercised ISO shares reverses the original spread for AMT, which is what releases the credit.</li>
     <li>RSU withholding is 22% federal on the first $1,000,000 of supplemental wages in a year and 37% above it, plus 10.23% in California. Shares are assumed to be withheld to cover those rates; the net shares are held with basis equal to the vest price. RSUs that vested before this year use the grant FMV as basis.</li>
     <li>Tax per tranche is the increase in that calendar year's total tax caused by adding the tranche, in date order. Future prices follow the scenario rate chosen at left; they are not forecasts. ESPP treatment is approximate (six-month offering period assumed).</li>
-    <li>Default grants for each company are invented, round-number examples. They are not any person's holdings.</li>
+    <li>Default grants for each company are invented, round-number examples. They are not any person's holdings. An uploaded vesting file is read inside this browser, is never transmitted or stored, and disappears on reset or reload. Uploaded grants use their actual vest dates and vest-date FMV; options count only shares still outstanding, so shares already exercised and held are not included.</li>
   </ul>
   <h4>Sources</h4>
   <ol>
@@ -281,12 +283,14 @@ function stateTax(o){
 
 /* ---------- vesting ---------- */
 function vestedShares(g,d){
+ if(g.schedule)return g.schedule.reduce((s,e)=>s+(e.date<=d?e.shares:0),0);
  if(g.type==="ESPP")return d>=g.vestStart?g.shares:0;
  if(d<g.vestStart)return 0; if(d>=g.vestEnd)return g.shares;
  const total=Math.max(1,monthsFull(g.vestStart,g.vestEnd)),q=Math.floor(monthsFull(g.vestStart,d)/3)*3;
  return Math.round(g.shares*Math.min(1,q/total));
 }
 function vestEvents(g){
+ if(g.schedule)return g.schedule.filter(e=>e.shares>0);
  const total=Math.max(1,monthsFull(g.vestStart,g.vestEnd)),ev=[];let prev=0;
  for(let m=3;;m+=3){const last=m>=total,date=last?g.vestEnd:addMonths(g.vestStart,m),cum=last?g.shares:Math.round(g.shares*m/total);
   if(cum>prev)ev.push({date,shares:cum-prev});prev=cum;if(last)break}
@@ -315,13 +319,13 @@ function compute(inp){
  const lots=[],rsu={};years.forEach(y=>rsu[y]={inc:0,shares:0,whFed:0,whSt:0});
  const evs=[];
  grants.filter(x=>x.type==="RSU").forEach(x=>vestEvents(x).forEach(e=>{
-   const eff=inp.doubleTrigger&&inp.isPrivate&&e.date<eventDate?eventDate:e.date;evs.push({g:x,shares:e.shares,date:eff})}));
+   const eff=inp.doubleTrigger&&inp.isPrivate&&e.date<eventDate?eventDate:e.date;evs.push({g:x,shares:e.shares,date:eff,fmv:eff===e.date?e.fmv:0})}));
  evs.sort((a,b)=>a.date<b.date?-1:1);
  const suppCum={};
  for(const e of evs){const y=yr(e.date);
-  if(y<Y0){lots.push({kind:"RSU",date:e.date,shares:Math.round(e.shares*(1-TAX.supp.low-stSupp)),basis:e.g.fmv});continue}
+  if(y<Y0){lots.push({kind:"RSU",date:e.date,shares:Math.round(e.shares*(1-TAX.supp.low-stSupp)),basis:e.fmv||e.g.fmv});continue}
   if(!rsu[y])continue;
-  const p=e.date<asOf?price:P(e.date),inc=e.shares*p,cum=suppCum[y]||0,low=Math.min(inc,Math.max(0,TAX.supp.cap-cum));
+  const p=e.date<asOf?(e.fmv||price):P(e.date),inc=e.shares*p,cum=suppCum[y]||0,low=Math.min(inc,Math.max(0,TAX.supp.cap-cum));
   const wf=TAX.supp.low*low+TAX.supp.high*(inc-low),ws=stSupp*inc;suppCum[y]=cum+inc;
   rsu[y].inc+=inc;rsu[y].shares+=e.shares;rsu[y].whFed+=wf;rsu[y].whSt+=ws;
   lots.push({kind:"RSU",date:e.date,shares:inc>0?Math.round(e.shares*(1-(wf+ws)/inc)):e.shares,basis:p});
@@ -442,7 +446,42 @@ function compute(inp){
  return{asOf,Y0,years,planYears,price,isoRows,amtCurve,rsuRows,tranches:tr,yearTax,conc,actions:acts.slice(0,4),
   totals:{netCash,gross,trTax,trEx},vestedToday:grants.map(x=>vestedShares(x,asOf)),window:win};
 }
-root.EquityEngine={TAX,compute,fedTax,stateTax,bracketTax,ltcgTax,vestedShares,vestEvents,addMonths};
+
+/* ---------- import a vesting export (rows = array of arrays, first non-empty row with "Grant Name" is the header) ---------- */
+function toISO(v){
+ if(v==null||v==="")return null;
+ if(typeof v==="number")return S(new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5));
+ const t=String(v).trim();let m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+ if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
+ m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+ if(m)return (m[3].length===2?"20"+m[3]:m[3])+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");
+ return /^\d+(\.\d+)?$/.test(t)?toISO(+t):null}
+function importRows(rows){
+ const norm=x=>String(x==null?"":x).toLowerCase().replace(/\s+/g," ").trim();
+ const hi=rows.findIndex(r=>r&&r.some(c=>norm(c)==="grant name"));
+ if(hi<0)throw new Error("No \"Grant Name\" column found. Expected a vesting summary export with Grant Name, Vest Date, Granted and Outstanding columns.");
+ const H=rows[hi].map(norm),col=(...names)=>{for(const n of names){const i=H.findIndex(h=>h===n||h.indexOf(n)===0);if(i>=0)return i}return -1};
+ const c={name:col("grant name"),gdate:col("grant date"),type:col("equity award type","award type"),tax:col("tax qualification"),vdate:col("vest date"),
+  fmv:col("fmv at vest"),granted:col("granted"),released:col("exercised/released","exercised","released"),out:col("outstanding")};
+ if(c.vdate<0||c.out<0)throw new Error("The file is missing a Vest Date or Outstanding column.");
+ const num=v=>{const n=typeof v==="number"?v:parseFloat(String(v==null?"":v).replace(/[$,]/g,""));return isFinite(n)?n:0};
+ const map=new Map();let skipped=0;
+ for(const r of rows.slice(hi+1)){if(!r||r[c.name]==null||r[c.name]==="")continue;
+  const name=String(r[c.name]),vd=toISO(r[c.vdate]);if(!vd)continue;
+  const kind=(norm(r[c.type])+" "+norm(r[c.tax])+" "+norm(name));
+  const type=/rsu|restricted/.test(norm(r[c.type])||norm(name))?"RSU":/espp/.test(kind)?"ESPP":/iso|incentive/.test(norm(r[c.tax])||norm(name))?"ISO":"NQSO";
+  const sh=type==="RSU"?num(r[c.released])+num(r[c.out]):num(r[c.out]);
+  let g=map.get(name);
+  if(!g){const m=name.match(/\$\s*([\d,]+(?:\.\d+)?)/),px=m?num(m[1]):0;
+   g={type,shares:0,strike:type==="RSU"?0:px,fmv:px,grantDate:toISO(r[c.gdate])||vd,vestStart:vd,vestEnd:vd,schedule:[],label:name};map.set(name,g)}
+  if(sh>0){g.schedule.push({date:vd,shares:Math.round(sh),fmv:c.fmv>=0?num(r[c.fmv]):0});g.shares+=Math.round(sh)}
+  if(vd<g.vestStart)g.vestStart=vd;if(vd>g.vestEnd)g.vestEnd=vd}
+ const grants=[];for(const g of map.values()){if(g.shares>0){g.schedule.sort((a,b)=>a.date<b.date?-1:1);grants.push(g)}else skipped++}
+ if(!grants.length)throw new Error("No grants with shares outstanding were found in the file.");
+ const order={ISO:0,NQSO:1,RSU:2,ESPP:3};grants.sort((a,b)=>order[a.type]-order[b.type]||(a.grantDate<b.grantDate?-1:1));
+ let last=null;for(const g of grants)for(const e of g.schedule)if(e.fmv>0&&(!last||e.date>last.date))last={date:e.date,fmv:e.fmv};
+ return{grants,skipped,lastFmv:last}}
+root.EquityEngine={TAX,compute,importRows,fedTax,stateTax,bracketTax,ltcgTax,vestedShares,vestEvents,addMonths};
 })(typeof globalThis!=="undefined"?globalThis:this);
 </script>
 
@@ -484,8 +523,9 @@ function buildGrants(){const tb=$("grants").tBodies[0];tb.innerHTML="";
   const cell=(html)=>{const td=document.createElement("td");td.appendChild(html);tr.appendChild(td);return td};
   const sel=document.createElement("select");["ISO","NQSO","RSU","ESPP"].forEach(t=>{const o=document.createElement("option");o.textContent=t;o.selected=g.type===t;sel.appendChild(o)});
   sel.onchange=()=>{g.type=sel.value;render()};cell(sel);
-  [["shares",1],["strike",.01],["fmv",.01]].forEach(([k,st])=>{const n=document.createElement("input");n.type="number";n.min=0;n.step=st;n.value=g[k];n.oninput=()=>{g[k]=+n.value||0;render()};cell(n)});
-  ["grantDate","vestStart","vestEnd"].forEach(k=>{const n=document.createElement("input");n.type="date";n.value=g[k];n.onchange=()=>{if(n.value){g[k]=n.value;render()}};cell(n)});
+  [["shares",1],["strike",.01],["fmv",.01]].forEach(([k,st])=>{const n=document.createElement("input");n.type="number";n.min=0;n.step=st;n.value=g[k];n.disabled=!!g.schedule&&k==="shares";n.oninput=()=>{g[k]=+n.value||0;render()};cell(n)});
+  ["grantDate","vestStart","vestEnd"].forEach(k=>{const n=document.createElement("input");n.type="date";n.value=g[k];n.disabled=!!g.schedule&&k!=="grantDate";n.onchange=()=>{if(n.value){g[k]=n.value;render()}};cell(n)});
+  if(g.schedule)tr.title=g.label+": "+g.schedule.length+" vest dates from the uploaded file";
   const out=document.createElement("span");out.id="vest"+i;cell(out);
   const x=document.createElement("button");x.className="btn sm";x.textContent="Remove";x.onclick=()=>{state.grants.splice(i,1);buildGrants();render()};cell(x).className="noprint";
   tb.appendChild(tr)})}
@@ -517,6 +557,14 @@ function wire(){
  $("target").oninput=e=>{state.target=+e.target.value||10;render()};
  $("holdQD").onchange=e=>{state.holdQD=e.target.checked;render()};
  $("addGrant").onclick=()=>{state.grants.push(G("RSU",1000,0,state.price,state.asOf,state.asOf,E.addMonths(state.asOf,48)));buildGrants();render()};
+ $("upBtn").onclick=()=>$("upFile").click();
+ $("upFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const msg=$("upMsg");
+  try{const rows=/\.csv$/i.test(f.name)?parseCSV(await f.text()):await readXlsx(await f.arrayBuffer());
+   const r=E.importRows(rows);state.grants=r.grants;state.curveYear=null;amtFreePlan();buildGrants();buildIsoCtl();render();
+   const n=t=>r.grants.filter(g=>g.type===t).length;
+   msg.className="note pos";msg.textContent="Loaded "+r.grants.length+" grants ("+n("ISO")+" ISO, "+n("NQSO")+" NQSO, "+n("RSU")+" RSU) with their actual vest dates."+(r.skipped?" Skipped "+r.skipped+" with nothing outstanding.":"")+
+    (r.lastFmv?" Latest FMV in the file: $"+r.lastFmv.fmv.toFixed(2)+" on "+dt(r.lastFmv.date)+"; the share price was left at $"+state.price.toFixed(2)+".":"")+" Read in this browser only."}
+  catch(err){msg.className="note neg";msg.textContent="Could not read that file. "+err.message}};
  $("reset").onclick=()=>{state=defaults(state.company);init()};
  $("print").onclick=()=>window.print();
 }
@@ -529,6 +577,37 @@ function syncInputs(skip){
  $("fmvF").style.display=state.isPrivate?"":"none";$("dtF").style.display=state.isPrivate?"":"none";$("flat").style.display=state.state==="FLAT"?"":"none";
  $("eventLabel").textContent=state.eventLabel;
 }
+
+/* ---------- file readers (local only) ---------- */
+function parseCSV(t){const rows=[];let row=[],cur="",q=false;
+ for(let i=0;i<t.length;i++){const ch=t[i];
+  if(q){if(ch==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=ch}
+  else if(ch==='"')q=true;else if(ch===","){row.push(cur);cur=""}
+  else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&t[i+1]==="\n")i++;row.push(cur);rows.push(row);row=[];cur=""}else cur+=ch}
+ if(cur!==""||row.length){row.push(cur);rows.push(row)}return rows}
+async function readXlsx(buf){
+ if(typeof DecompressionStream==="undefined")throw new Error("This browser cannot open .xlsx files here; save the sheet as .csv and upload that.");
+ const dv=new DataView(buf),u8=new Uint8Array(buf);let eo=-1;
+ for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--)if(dv.getUint32(i,true)===0x06054b50){eo=i;break}
+ if(eo<0)throw new Error("Not a valid .xlsx file.");
+ const count=dv.getUint16(eo+10,true),td=new TextDecoder(),files={};let o=dv.getUint32(eo+16,true);
+ for(let i=0;i<count;i++){if(dv.getUint32(o,true)!==0x02014b50)break;
+  const method=dv.getUint16(o+10,true),csize=dv.getUint32(o+20,true),nl=dv.getUint16(o+28,true),el=dv.getUint16(o+30,true),cl=dv.getUint16(o+32,true),lho=dv.getUint32(o+42,true);
+  files[td.decode(u8.subarray(o+46,o+46+nl))]={method,csize,lho};o+=46+nl+el+cl}
+ async function text(name){const f=files[name];if(!f)return null;const st=f.lho+30+dv.getUint16(f.lho+26,true)+dv.getUint16(f.lho+28,true),data=u8.subarray(st,st+f.csize);
+  if(f.method===0)return td.decode(data);
+  return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text()}
+ const xml=t=>new DOMParser().parseFromString(t,"application/xml");
+ const ssT=await text("xl/sharedStrings.xml"),ss=ssT?[...xml(ssT).getElementsByTagName("si")].map(si=>[...si.getElementsByTagName("t")].map(t=>t.textContent).join("")):[];
+ const sheet=Object.keys(files).filter(n=>/^xl\/worksheets\/[^/]+\.xml$/.test(n)).sort()[0];
+ if(!sheet)throw new Error("No worksheet found in the file.");
+ const rows=[];
+ for(const r of xml(await text(sheet)).getElementsByTagName("row")){const row=[];
+  for(const c of r.getElementsByTagName("c")){const ref=c.getAttribute("r")||"",L=ref.replace(/\d+/g,"");let ci=0;for(const ch of L)ci=ci*26+ch.charCodeAt(0)-64;
+   const t=c.getAttribute("t"),v=c.getElementsByTagName("v")[0],val=t==="inlineStr"?[...c.getElementsByTagName("t")].map(x=>x.textContent).join(""):v?v.textContent:null;
+   row[ci-1]=val==null?null:t==="s"?ss[+val]:t==="str"||t==="inlineStr"?val:t==="b"?val:+val}
+  rows.push(row)}
+ return rows}
 
 /* ---------- charts ---------- */
 function amtChart(pts,row){

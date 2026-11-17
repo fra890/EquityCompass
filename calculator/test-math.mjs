@@ -116,5 +116,29 @@ const base = { asOf: "2026-11-17", growth: 0, isPrivate: false, doubleTrigger: f
   print("Example B: RSU withholding gap and sale tranche (MFJ, CA, $400,000 W-2, price $139.11)");
 }
 
+/* ---------------------------------------------------------------
+   Import check: a small vesting-summary export, made up for this test
+   --------------------------------------------------------------- */
+{
+  const hdr = ["Grant Name", "Employee Grant Number", "Grant Date", "Equity Award Type", "Tax Qualification", "Vest Date", "FMV at Vest", "Granted", "Vested", "Exercised/Released", "Outstanding", "Cancelled Or Expired", "Expiry Date"];
+  const rows = [[], hdr,
+    ["1/15/2024-$10.00-ISO-4yr", "1", 45306, "Option", "US ISO", 45672, null, 1000, 1000, 400, 600, 0, 48959],   // vests 2025-01-15, 400 already exercised
+    ["1/15/2024-$10.00-ISO-4yr", "1", 45306, "Option", "US ISO", "1/15/2027", null, 1000, 0, 0, 1000, 0, 48959],
+    ["1/15/2024-$10.00-RSU-2yr", "2", 45306, "RSU", "Non-Qualified", "2025-06-15", 30, 500, 500, 500, 0, 0, null],
+    ["1/15/2024-$10.00-RSU-2yr", "2", 45306, "RSU", "Non-Qualified", "2027-06-15", null, 500, 0, 0, 500, 0, null],
+    ["3/1/2025-$20.00-NQ-4yr", "3", "3/1/2025", "Option", "Non-Qualified", "3/1/2026", null, 300, 0, 0, 0, 300, null]]; // cancelled
+  const r = E.importRows(rows), iso = r.grants.find(g => g.type === "ISO"), rsu = r.grants.find(g => g.type === "RSU");
+  check("Grants imported (cancelled grant skipped)", 2, r.grants.length, 0);
+  check("ISO shares = outstanding only", 1600, iso.shares, 0);
+  check("ISO strike read from grant name", 10, iso.strike, 0);
+  check("ISO vested and unexercised on 2026-11-17", 600, E.vestedShares(iso, "2026-11-17"), 0);
+  check("Excel serial 45306 reads as 2024-01-15", 1, iso.grantDate === "2024-01-15" ? 1 : 0, 0);
+  check("RSU shares = released + outstanding", 1000, rsu.shares, 0);
+  const R = E.compute({ ...base, price: 50, status: "single", w2: 200000, eventDate: "2026-12-01", grants: r.grants, tranches: [{ months: 0, pct: 100 }] });
+  // 500 RSUs vested 2025 at $30 FMV: net 500 x (1 - 0.22 - 0.1023) = 339 shares, sold at $50 -> LTCG 339 x 20
+  check("Sale uses vest-date FMV as basis (LTCG)", 339 * 20, R.yearTax[2026].L.lt, 0.01);
+  print("Import: synthetic vesting export");
+}
+
 console.log(fail ? `\n${fail} MISMATCH(ES)` : "\nAll checks match to within $1.");
 process.exit(fail ? 1 : 0);
