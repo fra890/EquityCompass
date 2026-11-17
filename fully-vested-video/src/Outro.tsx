@@ -3,6 +3,7 @@ import {AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig} from 'remoti
 import {Backdrop} from './components/Backdrop';
 import {Guide, useShowGuides} from './components/Guides';
 import {Logo} from './components/Logo';
+import {QrCode} from './components/QrCode';
 import {VestingBar, vestingAt} from './components/VestingBar';
 import {Wordmark, fadeUp} from './components/Wordmark';
 import {sans} from './fonts';
@@ -28,7 +29,8 @@ const landscape = {
   firm: 29,
   cta: 29,
   url: 31,
-  logo: {left: 808, top: 756, width: 340},
+  qr: {left: 808, top: 622, size: 200},
+  logo: {left: 1052, top: 737, width: 340},
   slots: [
     {left: 1464, top: 104, width: 392, height: 220},
     {left: 1464, top: 364, width: 392, height: 220},
@@ -49,6 +51,7 @@ const portrait = {
   firm: 30,
   cta: 30,
   url: 32,
+  qr: {left: 716, top: 1046, size: 184},
   logo: {left: 80, top: 1556, width: 360},
   slots: [] as Box[],
   subscribe: null as Box | null,
@@ -80,6 +83,8 @@ export const OutroScene: React.FC<OutroProps & SceneSize & {muted?: boolean}> = 
   cta,
   url,
   disclosure,
+  qrUrl,
+  qrLabel,
   transparent,
   logoFile,
   audioFile,
@@ -209,6 +214,12 @@ export const OutroScene: React.FC<OutroProps & SceneSize & {muted?: boolean}> = 
       <div style={{position: 'absolute', left: L.logo.left, top: L.logo.top, ...fadeUp(frame, t0 + 40)}}>
         <Logo file={logoFile} width={L.logo.width} />
       </div>
+
+      {qrUrl ? (
+        <div style={{position: 'absolute', left: L.qr.left, top: L.qr.top, ...fadeUp(frame, t0 + 40)}}>
+          <QrCode value={qrUrl} size={L.qr.size} label={clean(qrLabel)} />
+        </div>
+      ) : null}
 
       {/* Compliance disclosure: always from the prop, never hardcoded. */}
       <div

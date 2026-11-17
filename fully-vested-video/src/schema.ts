@@ -21,6 +21,9 @@ export const outroSchema = z.object({
   cta: z.string(),
   url: z.string(),
   disclosure: z.string(),
+  /** Link encoded in the QR code. Leave empty to hide the QR code. */
+  qrUrl: z.string().nullable().optional(),
+  qrLabel: z.string().nullable().optional(),
   /** true: host zone is see-through (for the ProRes 4444 overlay). */
   transparent: z.boolean(),
   ...shared,

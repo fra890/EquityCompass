@@ -24,6 +24,8 @@ const outroDefaults: OutroProps = {
   cta: episode.cta,
   url: episode.url,
   disclosure: episode.disclosure,
+  qrUrl: episode.qrUrl,
+  qrLabel: episode.qrLabel,
   transparent: false,
   logoFile: episode.logoFile,
   audioFile: episode.audioFile,

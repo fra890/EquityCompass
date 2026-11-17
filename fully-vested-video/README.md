@@ -26,6 +26,8 @@ quotes, save, then re-render (next section).
 | `episodeTitle` | Title shown in the last second of the intro. Use `""` to hide it. |
 | `cta` | Call to action button on the end card. |
 | `url` | Web address under the button. |
+| `qrUrl` | Link the QR code opens (the booking calendar). Use `""` to hide the QR code. |
+| `qrLabel` | Small caption under the QR code. |
 | `disclosure` | Compliance text on the end card. Paste the CCO-approved wording here. |
 | `hostName`, `hostTitle`, `firmName` | Name lines on the end card. |
 | `logoFile` | File name of the logo inside the `public` folder. |
